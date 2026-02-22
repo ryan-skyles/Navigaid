@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { useLocation } from "react-router-dom";
-import { Send, Bot } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Send, Bot, ArrowLeft, MessageSquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { User } from "lucide-react";
@@ -12,43 +12,185 @@ interface Message {
   content: string;
 }
 
-const mockResponses: Record<number, string> = {
-  0: "Thank you for sharing your situation. Based on what you've described, there are a few housing assistance programs that might help you.\n\nWould you like me to walk you through the options available in your area?",
-  1: "Great! Here are some programs to consider:\n\n• **Housing Choice Vouchers (Section 8)** — Helps cover rent in private housing.\n• **Affordable Housing Programs** — Income-based units with capped rent.\n• **Emergency Rental Assistance** — Short-term help if you're behind on rent.\n\nWould you like details on any of these?",
-  2: "I'd recommend starting with the Housing Choice Voucher program. You'll need to:\n\n1. Contact your local Public Housing Authority (PHA)\n2. Complete a pre-application form\n3. Provide income and household documentation\n\nWould you like help locating your nearest PHA?",
-};
+interface ApiMessage {
+  message_id: number;
+  sender_type: "user" | "assistant";
+  message_text: string;
+}
 
-const quickReplies = ["Yes", "No", "Tell me more"];
+interface ApiSession {
+  session_id: number;
+  message_count: number;
+  last_message_text: string | null;
+}
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3001";
+const DEMO_CLIENT_ID = 1;
 
 const ResultsPage = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const initialMessage = (location.state as { initialMessage?: string })?.initialMessage;
+  const hasHandledInitialMessage = useRef(false);
+
   const [messages, setMessages] = useState<Message[]>([]);
+  const [sessions, setSessions] = useState<ApiSession[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [input, setInput] = useState("");
-  const [responseIndex, setResponseIndex] = useState(0);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [isBootstrappingThread, setIsBootstrappingThread] = useState(false);
+  const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (initialMessage && messages.length === 0) {
-      const userMsg: Message = { id: "1", role: "user", content: initialMessage };
-      const botMsg: Message = { id: "2", role: "assistant", content: mockResponses[0] || "I'm here to help you find housing assistance." };
-      setMessages([userMsg, botMsg]);
-      setResponseIndex(1);
+  const mapApiMessage = (message: ApiMessage): Message => ({
+    id: String(message.message_id),
+    role: message.sender_type,
+    content: message.message_text,
+  });
+
+  const loadSessions = async () => {
+    setIsLoadingSessions(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/clients/${DEMO_CLIENT_ID}/sessions`);
+
+      if (!response.ok) {
+        throw new Error("Unable to load conversations.");
+      }
+
+      const data = (await response.json()) as ApiSession[];
+      setSessions(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load conversations.");
+    } finally {
+      setIsLoadingSessions(false);
     }
-  }, [initialMessage]);
+  };
+
+  const loadMessages = async (sessionId: number) => {
+    setIsLoadingMessages(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/messages`);
+
+      if (!response.ok) {
+        throw new Error("Unable to load chat history.");
+      }
+
+      const data = (await response.json()) as ApiMessage[];
+      setMessages(data.map(mapApiMessage));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load chat history.");
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  };
+
+  const createSession = async () => {
+    const response = await fetch(`${API_BASE_URL}/api/clients/${DEMO_CLIENT_ID}/sessions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Unable to create conversation.");
+    }
+
+    const createdSession = (await response.json()) as ApiSession;
+    return createdSession;
+  };
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    loadSessions();
+  }, []);
 
-  const sendMessage = (text: string) => {
+  useEffect(() => {
+    const bootstrapInitialMessage = async () => {
+      if (!initialMessage || hasHandledInitialMessage.current) {
+        return;
+      }
+
+      hasHandledInitialMessage.current = true;
+      setIsBootstrappingThread(true);
+      setError("");
+
+      try {
+        const newSession = await createSession();
+        setSelectedSessionId(newSession.session_id);
+
+        const response = await fetch(`${API_BASE_URL}/api/sessions/${newSession.session_id}/messages`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messageText: initialMessage.trim(),
+            senderType: "user",
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Unable to save first message.");
+        }
+
+        await loadSessions();
+        await loadMessages(newSession.session_id);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unable to start conversation.");
+      } finally {
+        navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+        setIsBootstrappingThread(false);
+      }
+    };
+
+    bootstrapInitialMessage();
+  }, [initialMessage, location.pathname, location.search, navigate]);
+
+  const sendMessage = async (text: string) => {
     if (!text.trim()) return;
-    const userMsg: Message = { id: Date.now().toString(), role: "user", content: text.trim() };
-    const botContent = mockResponses[responseIndex] || "Thank you for your message. A housing specialist would typically review this and get back to you with personalized guidance.";
-    const botMsg: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: botContent };
-    setMessages((prev) => [...prev, userMsg, botMsg]);
-    setResponseIndex((i) => i + 1);
-    setInput("");
+
+    setIsSending(true);
+    setError("");
+
+    try {
+      let sessionId = selectedSessionId;
+
+      if (!sessionId) {
+        const newSession = await createSession();
+        sessionId = newSession.session_id;
+        setSelectedSessionId(sessionId);
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messageText: text.trim(),
+          senderType: "user",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Unable to save message.");
+      }
+
+      const savedMessage = (await response.json()) as ApiMessage;
+      setMessages((prev) => [...prev, mapApiMessage(savedMessage)]);
+      setInput("");
+      await loadSessions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save message.");
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -58,13 +200,89 @@ const ResultsPage = () => {
     }
   };
 
+  const handleSessionSelect = async (sessionId: number) => {
+    setSelectedSessionId(sessionId);
+    setMessages([]);
+    await loadMessages(sessionId);
+  };
+
+  const handleBackToSessions = () => {
+    setSelectedSessionId(null);
+    setMessages([]);
+    setInput("");
+    setError("");
+  };
+
+  if (selectedSessionId === null && !isBootstrappingThread) {
+    return (
+      <div className="flex flex-col h-[70vh] max-h-[70vh] px-4 py-4 gap-4">
+        <div className="flex items-center justify-between">
+          <h1 className="font-display text-lg font-semibold text-foreground">Your Conversations</h1>
+          <Button
+            size="sm"
+            className="gap-1"
+            onClick={async () => {
+              try {
+                setError("");
+                const newSession = await createSession();
+                await loadSessions();
+                await handleSessionSelect(newSession.session_id);
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Unable to create conversation.");
+              }
+            }}
+          >
+            <MessageSquarePlus className="w-4 h-4" />
+            New Chat
+          </Button>
+        </div>
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        {isLoadingSessions && <p className="text-sm text-muted-foreground">Loading conversations...</p>}
+
+        {!isLoadingSessions && sessions.length === 0 && (
+          <p className="text-sm text-muted-foreground">No conversations yet. Start one to begin.</p>
+        )}
+
+        <div className="flex-1 overflow-y-auto flex flex-col gap-2 pr-1">
+          {sessions.map((session) => (
+            <button
+              key={session.session_id}
+              onClick={() => handleSessionSelect(session.session_id)}
+              className="text-left p-3 rounded-lg border border-border hover:border-primary/30 bg-card"
+            >
+              <p className="text-sm font-medium text-foreground">Conversation #{session.session_id}</p>
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                {session.last_message_text ?? "No messages yet"}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-1">{session.message_count} messages</p>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex flex-col h-[70vh] max-h-[70vh]">
+      <div className="px-4 pt-4 pb-2 border-b border-border flex items-center gap-2">
+        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleBackToSessions}>
+          <ArrowLeft className="w-4 h-4" />
+        </Button>
+        <div>
+          <p className="text-sm font-medium text-foreground">Conversation #{selectedSessionId}</p>
+          <p className="text-xs text-muted-foreground">Saved chat thread</p>
+        </div>
+      </div>
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        {isLoadingMessages && <p className="text-sm text-muted-foreground">Loading conversation...</p>}
         {messages.length === 0 && (
           <div className="text-center text-muted-foreground text-sm py-12">
-            Start a conversation from the home page.
+            Start a conversation by sending your first message.
           </div>
         )}
         {messages.map((msg) => (
@@ -102,23 +320,6 @@ const ResultsPage = () => {
         <div ref={bottomRef} />
       </div>
 
-      {/* Quick replies */}
-      {messages.length > 0 && (
-        <div className="flex gap-2 px-4 pb-2">
-          {quickReplies.map((reply) => (
-            <Button
-              key={reply}
-              variant="outline"
-              size="sm"
-              className="rounded-full text-xs"
-              onClick={() => sendMessage(reply)}
-            >
-              {reply}
-            </Button>
-          ))}
-        </div>
-      )}
-
       {/* Input */}
       <div className="px-4 pb-4 pt-2">
         <div className="flex gap-2 items-end rounded-xl border border-border bg-card p-2">
@@ -134,7 +335,7 @@ const ResultsPage = () => {
             size="icon"
             className="h-8 w-8 rounded-full shrink-0"
             onClick={() => sendMessage(input)}
-            disabled={!input.trim()}
+            disabled={!input.trim() || isSending || isLoadingMessages || isBootstrappingThread}
             aria-label="Send"
           >
             <Send className="w-4 h-4" />
