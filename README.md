@@ -1,10 +1,11 @@
 # GovAid Assistance
 
 ## App Summary
-GovAid Assistance is a web app prototype for people who need help finding government aid programs, especially housing-related support. The primary user is a client/applicant who may be overwhelmed and unsure where to start. The frontend provides a guided chat-like experience and informational pages to make navigation easier. This sprint adds the backend foundation so the app is no longer purely static. A PostgreSQL database now stores core system data using the ERD-based schema in `/db/schema.sql`, with realistic demo records in `/db/seed.sql`. The vertical slice implemented here is persistent chat messaging: when a user sends a message in Search Results, it is saved to the database through the backend API and rendered in the UI. Reloading the page confirms the message persists.
+GovAid Assistance is a full-stack web application prototype designed to help individuals locate and understand government aid programs, particularly housing-related assistance. The primary user is an applicant who may feel overwhelmed by complex eligibility requirements and unclear processes. The application provides a guided, chat-style experience to make navigating available resources more intuitive and approachable.
+This iteration introduces a backend service and persistent data layer, transforming the application from a static frontend into a data-driven system. A PostgreSQL database stores system data using the schema defined in /db/schema.sql, with realistic sample records provided in /db/seed.sql. The implemented vertical slice enables persistent chat messaging: when a user sends a message in the Search Results view, it is saved to the database through the Express API and immediately rendered in the UI. Refreshing the page confirms the message persists.
 
 ## Tech Stack
-- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui
+- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, React Router, React Query
 - **Backend:** Node.js, Express, CORS, dotenv
 - **Database:** PostgreSQL (`pg` driver)
 - **Authentication:** Not implemented yet (planned future work)
@@ -44,27 +45,33 @@ git --version
 
 1. **Clone the repository**
 ```bash
-git clone <YOUR_REPO_URL>
+git clone <https://github.com/ryan-skyles/GovAidAssistance.git>
 cd GovAidAssistance
 ```
 
-2. **Install frontend + backend dependencies**
+2. **Install backend dependencies:**
 ```bash
-npm run install-deps
+cd backend
+npm install
+```
+3. **Install frontend dependencies:**
+```bash
+cd ../frontend
+npm install
 ```
 
-3. **Create database** (example using default user)
+4. **Create database** (example using default user)
 ```bash
 createdb aiddb
 ```
 
-4. **Run schema and seed scripts**
+5. **Run schema and seed scripts**
 ```bash
 psql -d aiddb -f db/schema.sql
 psql -d aiddb -f db/seed.sql
 ```
 
-5. **Configure backend environment variables**
+6. **Configure backend environment variables**
 ```bash
 cp backend/.env.example backend/.env
 ```
@@ -90,7 +97,7 @@ npm run dev:frontend
 ```
 
 Open in browser:
-- Frontend: `http://localhost:5173`
+- Frontend: `http://localhost:8080`
 - Backend health check: `http://localhost:3001/health`
 
 ## Verifying the Vertical Slice (Persistent Chat Message)
@@ -118,7 +125,3 @@ Run this query to verify persisted messages for the demo session:
 psql -d aiddb -c "SELECT message_id, session_id, sender_type, message_text, timestamp FROM chat_message WHERE session_id = 1 ORDER BY message_id DESC LIMIT 10;"
 ```
 
-## Repository and Submission Notes
-- Keep all frontend, backend, and `/db` scripts in this one team repository.
-- Share this GitHub repository with: **taforlauracutler**
-- Submit your README link in assignment comments.
