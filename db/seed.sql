@@ -60,13 +60,13 @@ VALUES
 (5,'Submitted','Pending','2025-02-13');
 
 INSERT INTO Chat_session
-(client_id,start_time,end_time,summary_generated)
+(client_id,start_time,end_time,summary_generated,is_starred)
 VALUES
-(1,'09:00','09:20',true),
-(2,'10:00','10:25',true),
-(3,'11:00','11:15',false),
-(4,'12:00','12:30',true),
-(5,'13:00','13:10',false);
+(1,'09:00','09:20',true,true),
+(2,'10:00','10:25',true,false),
+(3,'11:00','11:15',false,true),
+(4,'12:00','12:30',true,false),
+(5,'13:00','13:10',false,false);
 
 INSERT INTO Chat_message
 (session_id,sender_type,message_text,timestamp)

@@ -1,9 +1,18 @@
-import { useState, useRef, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Send, Bot, ArrowLeft, MessageSquarePlus } from "lucide-react";
+import { ArrowLeft, Bot, ChevronDown, ChevronUp, MessageSquarePlus, Send, Star, Trash2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 interface Message {
@@ -22,10 +31,17 @@ interface ApiSession {
   session_id: number;
   message_count: number;
   last_message_text: string | null;
+  is_starred: boolean;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3001";
 const DEMO_CLIENT_ID = 1;
+
+const mapApiMessage = (message: ApiMessage): Message => ({
+  id: String(message.message_id),
+  role: message.sender_type,
+  content: message.message_text,
+});
 
 const ResultsPage = () => {
   const location = useLocation();
@@ -42,15 +58,19 @@ const ResultsPage = () => {
   const [isSending, setIsSending] = useState(false);
   const [isBootstrappingThread, setIsBootstrappingThread] = useState(false);
   const [error, setError] = useState("");
+  const [showStarredSessions, setShowStarredSessions] = useState(true);
+  const [pendingSessionAction, setPendingSessionAction] = useState<{
+    sessionId: number;
+    type: "star" | "delete";
+  } | null>(null);
+  const [sessionPendingDelete, setSessionPendingDelete] = useState<ApiSession | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const mapApiMessage = (message: ApiMessage): Message => ({
-    id: String(message.message_id),
-    role: message.sender_type,
-    content: message.message_text,
-  });
+  const selectedSession = sessions.find((session) => session.session_id === selectedSessionId) ?? null;
+  const starredSessions = sessions.filter((session) => session.is_starred);
+  const unstarredSessions = sessions.filter((session) => !session.is_starred);
 
-  const loadSessions = async () => {
+  const loadSessions = useCallback(async () => {
     setIsLoadingSessions(true);
     setError("");
 
@@ -68,9 +88,9 @@ const ResultsPage = () => {
     } finally {
       setIsLoadingSessions(false);
     }
-  };
+  }, []);
 
-  const loadMessages = async (sessionId: number) => {
+  const loadMessages = useCallback(async (sessionId: number) => {
     setIsLoadingMessages(true);
     setError("");
 
@@ -88,7 +108,7 @@ const ResultsPage = () => {
     } finally {
       setIsLoadingMessages(false);
     }
-  };
+  }, []);
 
   const createSession = async () => {
     const response = await fetch(`${API_BASE_URL}/api/clients/${DEMO_CLIENT_ID}/sessions`, {
@@ -106,9 +126,58 @@ const ResultsPage = () => {
     return createdSession;
   };
 
+  const updateSessionStar = async (sessionId: number, isStarred: boolean) => {
+    const response = await fetch(`${API_BASE_URL}/api/clients/${DEMO_CLIENT_ID}/sessions/${sessionId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ isStarred }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Unable to update conversation.");
+    }
+
+    return (await response.json()) as ApiSession;
+  };
+
+  const deleteSession = async (sessionId: number) => {
+    const response = await fetch(`${API_BASE_URL}/api/clients/${DEMO_CLIENT_ID}/sessions/${sessionId}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      throw new Error("Unable to delete conversation.");
+    }
+  };
+
+  const resetConversationView = () => {
+    setSelectedSessionId(null);
+    setMessages([]);
+    setInput("");
+    setError("");
+  };
+
+  const isSessionActionPending = (sessionId: number, type?: "star" | "delete") => {
+    if (!pendingSessionAction || pendingSessionAction.sessionId !== sessionId) {
+      return false;
+    }
+
+    if (!type) {
+      return true;
+    }
+
+    return pendingSessionAction.type === type;
+  };
+
   useEffect(() => {
     loadSessions();
-  }, []);
+  }, [loadSessions]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   useEffect(() => {
     const bootstrapInitialMessage = async () => {
@@ -150,7 +219,7 @@ const ResultsPage = () => {
     };
 
     bootstrapInitialMessage();
-  }, [initialMessage, location.pathname, location.search, navigate]);
+  }, [initialMessage, loadMessages, loadSessions, location.pathname, location.search, navigate]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
@@ -207,34 +276,149 @@ const ResultsPage = () => {
   };
 
   const handleBackToSessions = () => {
-    setSelectedSessionId(null);
-    setMessages([]);
-    setInput("");
+    resetConversationView();
+  };
+
+  const handleToggleStar = async (session: ApiSession) => {
+    setPendingSessionAction({ sessionId: session.session_id, type: "star" });
     setError("");
+
+    try {
+      await updateSessionStar(session.session_id, !session.is_starred);
+      await loadSessions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update conversation.");
+    } finally {
+      setPendingSessionAction(null);
+    }
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!sessionPendingDelete) {
+      return;
+    }
+
+    setPendingSessionAction({ sessionId: sessionPendingDelete.session_id, type: "delete" });
+    setError("");
+
+    try {
+      await deleteSession(sessionPendingDelete.session_id);
+
+      if (selectedSessionId === sessionPendingDelete.session_id) {
+        resetConversationView();
+      }
+
+      await loadSessions();
+      setSessionPendingDelete(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete conversation.");
+    } finally {
+      setPendingSessionAction(null);
+    }
+  };
+
+  const renderSessionCard = (session: ApiSession) => {
+    const isDeleting = isSessionActionPending(session.session_id, "delete");
+    const isStarring = isSessionActionPending(session.session_id, "star");
+
+    return (
+      <div
+        key={session.session_id}
+        className="flex items-start gap-2 rounded-lg border border-border bg-card p-2 transition-colors hover:border-primary/30"
+      >
+        <button
+          type="button"
+          onClick={() => handleSessionSelect(session.session_id)}
+          className="min-w-0 flex-1 rounded-md px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-foreground">Conversation #{session.session_id}</p>
+            {session.is_starred && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />}
+          </div>
+          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+            {session.last_message_text ?? "No messages yet"}
+          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground">{session.message_count} messages</p>
+        </button>
+
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className={cn(
+              "h-8 w-8 rounded-full",
+              session.is_starred && "text-amber-500 hover:text-amber-500"
+            )}
+            aria-label={session.is_starred ? `Unstar conversation ${session.session_id}` : `Star conversation ${session.session_id}`}
+            title={session.is_starred ? "Unstar conversation" : "Star conversation"}
+            disabled={isDeleting || isStarring}
+            onClick={(event) => {
+              event.stopPropagation();
+              void handleToggleStar(session);
+            }}
+          >
+            <Star className={cn("h-4 w-4", session.is_starred && "fill-current")} />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 rounded-full text-destructive hover:text-destructive"
+            aria-label={`Delete conversation ${session.session_id}`}
+            title="Delete conversation"
+            disabled={isDeleting || isStarring}
+            onClick={(event) => {
+              event.stopPropagation();
+              setSessionPendingDelete(session);
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
   };
 
   if (selectedSessionId === null && !isBootstrappingThread) {
     return (
       <div className="flex flex-col h-[70vh] max-h-[70vh] px-4 py-4 gap-4">
-        <div className="flex items-center justify-between">
-          <h1 className="font-display text-lg font-semibold text-foreground">Your Conversations</h1>
-          <Button
-            size="sm"
-            className="gap-1"
-            onClick={async () => {
-              try {
-                setError("");
-                const newSession = await createSession();
-                await loadSessions();
-                await handleSessionSelect(newSession.session_id);
-              } catch (err) {
-                setError(err instanceof Error ? err.message : "Unable to create conversation.");
-              }
-            }}
-          >
-            <MessageSquarePlus className="w-4 h-4" />
-            New Chat
-          </Button>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="font-display text-lg font-semibold text-foreground">Your Conversations</h1>
+            <p className="text-sm text-muted-foreground">Star key chats to keep them pinned at the top.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {starredSessions.length > 0 && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-1"
+                onClick={() => setShowStarredSessions((current) => !current)}
+              >
+                {showStarredSessions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                {showStarredSessions ? "Hide Starred" : "Show Starred"}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              className="gap-1"
+              onClick={async () => {
+                try {
+                  setError("");
+                  const newSession = await createSession();
+                  await loadSessions();
+                  await handleSessionSelect(newSession.session_id);
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "Unable to create conversation.");
+                }
+              }}
+            >
+              <MessageSquarePlus className="w-4 h-4" />
+              New Chat
+            </Button>
+          </div>
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -246,20 +430,70 @@ const ResultsPage = () => {
         )}
 
         <div className="flex-1 overflow-y-auto flex flex-col gap-2 pr-1">
-          {sessions.map((session) => (
-            <button
-              key={session.session_id}
-              onClick={() => handleSessionSelect(session.session_id)}
-              className="text-left p-3 rounded-lg border border-border hover:border-primary/30 bg-card"
-            >
-              <p className="text-sm font-medium text-foreground">Conversation #{session.session_id}</p>
-              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                {session.last_message_text ?? "No messages yet"}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-1">{session.message_count} messages</p>
-            </button>
-          ))}
+          {starredSessions.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between px-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Starred Conversations
+                </p>
+                <p className="text-xs text-muted-foreground">{starredSessions.length}</p>
+              </div>
+              {showStarredSessions ? (
+                starredSessions.map(renderSessionCard)
+              ) : (
+                <div className="rounded-lg border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                  Starred conversations are hidden.
+                </div>
+              )}
+            </div>
+          )}
+
+          {unstarredSessions.length > 0 && (
+            <div className="space-y-2">
+              {starredSessions.length > 0 && (
+                <div className="flex items-center justify-between px-1 pt-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    All Conversations
+                  </p>
+                  <p className="text-xs text-muted-foreground">{unstarredSessions.length}</p>
+                </div>
+              )}
+              {unstarredSessions.map(renderSessionCard)}
+            </div>
+          )}
         </div>
+
+        <AlertDialog
+          open={sessionPendingDelete !== null}
+          onOpenChange={(isOpen) => {
+            if (!isOpen && !pendingSessionAction) {
+              setSessionPendingDelete(null);
+            }
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Conversation #{sessionPendingDelete?.session_id} will be removed permanently along with its saved
+                messages.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={pendingSessionAction?.type === "delete"}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={pendingSessionAction?.type === "delete"}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void handleDeleteConversation();
+                }}
+              >
+                Delete Conversation
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
@@ -270,10 +504,36 @@ const ResultsPage = () => {
         <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleBackToSessions}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-foreground">Conversation #{selectedSessionId}</p>
           <p className="text-xs text-muted-foreground">Saved chat thread</p>
         </div>
+        {selectedSession && (
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className={cn("h-8 w-8 rounded-full", selectedSession.is_starred && "text-amber-500 hover:text-amber-500")}
+              aria-label={selectedSession.is_starred ? "Unstar selected conversation" : "Star selected conversation"}
+              disabled={isSessionActionPending(selectedSession.session_id)}
+              onClick={() => void handleToggleStar(selectedSession)}
+            >
+              <Star className={cn("h-4 w-4", selectedSession.is_starred && "fill-current")} />
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 rounded-full text-destructive hover:text-destructive"
+              aria-label="Delete selected conversation"
+              disabled={isSessionActionPending(selectedSession.session_id)}
+              onClick={() => setSessionPendingDelete(selectedSession)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Messages */}
@@ -342,6 +602,38 @@ const ResultsPage = () => {
           </Button>
         </div>
       </div>
+
+      <AlertDialog
+        open={sessionPendingDelete !== null}
+        onOpenChange={(isOpen) => {
+          if (!isOpen && !pendingSessionAction) {
+            setSessionPendingDelete(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Conversation #{sessionPendingDelete?.session_id} will be removed permanently along with its saved
+              messages.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pendingSessionAction?.type === "delete"}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={pendingSessionAction?.type === "delete"}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleDeleteConversation();
+              }}
+            >
+              Delete Conversation
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

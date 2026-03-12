@@ -2,7 +2,7 @@
 
 ## App Summary
 GovAid Assistance is a full-stack web application prototype designed to help individuals locate and understand government aid programs, particularly housing-related assistance. The primary user is an applicant who may feel overwhelmed by complex eligibility requirements and unclear processes. The application provides a guided, chat-style experience to make navigating available resources more intuitive and approachable.
-This iteration introduces a backend service and persistent data layer, transforming the application from a static frontend into a data-driven system. A PostgreSQL database stores system data using the schema defined in /db/schema.sql, with realistic sample records provided in /db/seed.sql. The implemented vertical slice enables persistent chat messaging: when a user sends a message in the Search Results view, it is saved to the database through the Express API and immediately rendered in the UI. Refreshing the page confirms the message persists.
+This iteration introduces a backend service and persistent data layer, transforming the application from a static frontend into a data-driven system. A PostgreSQL database stores system data using the schema defined in /db/schema.sql, with realistic sample records provided in /db/seed.sql. The implemented vertical slice enables persistent chat messaging: when a user sends a message in the Search Results view, it is saved to the database through the Express API and immediately rendered in the UI. Refreshing the page confirms the message persists. Saved conversations can also be starred to keep important threads pinned near the top, and conversations can be permanently deleted from the results view.
 
 ## Tech Stack
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, React Router, React Query
@@ -71,6 +71,8 @@ psql -d aiddb -f db/schema.sql
 psql -d aiddb -f db/seed.sql
 ```
 
+The checked-in schema and seed data already include the `chat_session.is_starred` field used by the conversation pinning UI.
+
 6. **Configure backend environment variables**
 ```bash
 cp backend/.env.example backend/.env
@@ -109,6 +111,11 @@ The **Send** button on the Search Results page now performs a full stack flow:
 3. Backend returns inserted message JSON
 4. Frontend appends/render the message immediately
 5. Refresh still shows the message because it reloads from DB (`GET /api/sessions/1/messages`)
+
+The saved conversation list also supports session management:
+1. Users can star a conversation to pin it near the top of the list.
+2. Users can collapse or reveal the starred section from the results page.
+3. Users can permanently delete a conversation, which also removes its saved messages through the database relationship.
 
 ### Manual verification steps
 1. Start backend + frontend.

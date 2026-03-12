@@ -107,6 +107,7 @@ CREATE TABLE Chat_session (
     start_time TIME,
     end_time TIME,
     summary_generated BOOLEAN,
+    is_starred BOOLEAN NOT NULL DEFAULT false,
     FOREIGN KEY (client_id) REFERENCES client(client_id) ON DELETE CASCADE
 );
 

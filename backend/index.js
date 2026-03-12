@@ -37,6 +37,7 @@ app.get("/api/clients/:clientId/sessions", async (req, res) => {
         cs.start_time,
         cs.end_time,
         cs.summary_generated,
+        cs.is_starred,
         lm.message_text AS last_message_text,
         lm.sender_type AS last_message_sender,
         COALESCE(mc.message_count, 0) AS message_count
@@ -54,7 +55,7 @@ app.get("/api/clients/:clientId/sessions", async (req, res) => {
         GROUP BY session_id
       ) mc ON mc.session_id = cs.session_id
       WHERE cs.client_id = $1
-      ORDER BY cs.session_id DESC`,
+      ORDER BY cs.is_starred DESC, cs.session_id DESC`,
       [clientId]
     );
 
@@ -79,15 +80,79 @@ app.post("/api/clients/:clientId/sessions", async (req, res) => {
     }
 
     const { rows } = await pool.query(
-      `INSERT INTO chat_session (client_id, start_time, end_time, summary_generated)
-       VALUES ($1, CURRENT_TIME, NULL, false)
-       RETURNING session_id, client_id, start_time, end_time, summary_generated`,
+      `INSERT INTO chat_session (client_id, start_time, end_time, summary_generated, is_starred)
+       VALUES ($1, CURRENT_TIME, NULL, false, false)
+       RETURNING session_id, client_id, start_time, end_time, summary_generated, is_starred`,
       [clientId]
     );
 
     return res.status(201).json(rows[0]);
   } catch (err) {
     return res.status(500).json({ error: "Failed to create session.", details: err.message });
+  }
+});
+
+app.patch("/api/clients/:clientId/sessions/:sessionId", async (req, res) => {
+  const clientId = Number.parseInt(req.params.clientId, 10);
+  const sessionId = Number.parseInt(req.params.sessionId, 10);
+  const { isStarred } = req.body;
+
+  if (Number.isNaN(clientId)) {
+    return res.status(400).json({ error: "Invalid client ID." });
+  }
+
+  if (Number.isNaN(sessionId)) {
+    return res.status(400).json({ error: "Invalid session ID." });
+  }
+
+  if (typeof isStarred !== "boolean") {
+    return res.status(400).json({ error: "isStarred must be a boolean." });
+  }
+
+  try {
+    const { rows, rowCount } = await pool.query(
+      `UPDATE chat_session
+       SET is_starred = $1
+       WHERE session_id = $2 AND client_id = $3
+       RETURNING session_id, client_id, start_time, end_time, summary_generated, is_starred`,
+      [isStarred, sessionId, clientId]
+    );
+
+    if (rowCount === 0) {
+      return res.status(404).json({ error: "Session not found." });
+    }
+
+    return res.json(rows[0]);
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to update session.", details: err.message });
+  }
+});
+
+app.delete("/api/clients/:clientId/sessions/:sessionId", async (req, res) => {
+  const clientId = Number.parseInt(req.params.clientId, 10);
+  const sessionId = Number.parseInt(req.params.sessionId, 10);
+
+  if (Number.isNaN(clientId)) {
+    return res.status(400).json({ error: "Invalid client ID." });
+  }
+
+  if (Number.isNaN(sessionId)) {
+    return res.status(400).json({ error: "Invalid session ID." });
+  }
+
+  try {
+    const { rowCount } = await pool.query(
+      "DELETE FROM chat_session WHERE session_id = $1 AND client_id = $2",
+      [sessionId, clientId]
+    );
+
+    if (rowCount === 0) {
+      return res.status(404).json({ error: "Session not found." });
+    }
+
+    return res.status(204).send();
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to delete session.", details: err.message });
   }
 });
 
