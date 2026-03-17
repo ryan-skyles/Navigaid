@@ -4,12 +4,20 @@
 GovAid Assistance is a full-stack web application prototype designed to help individuals locate and understand government aid programs, particularly housing-related assistance. The primary user is an applicant who may feel overwhelmed by complex eligibility requirements and unclear processes. The application provides a guided, chat-style experience to make navigating available resources more intuitive and approachable.
 This iteration introduces a backend service and persistent data layer, transforming the application from a static frontend into a data-driven system. A PostgreSQL database stores system data using the schema defined in /db/schema.sql, with realistic sample records provided in /db/seed.sql. The implemented vertical slice enables persistent chat messaging: when a user sends a message in the Search Results view, it is saved to the database through the Express API and immediately rendered in the UI. Refreshing the page confirms the message persists. Saved conversations can also be starred to keep important threads pinned near the top, and conversations can be permanently deleted from the results view.
 
+## Working Features
+- **Site logo** — Custom logo displayed in the header (all pages) and as the hero image on the landing page
+- **Persistent chat history** — Messages sent on the Search Results page are saved to PostgreSQL and survive page refreshes
+- **Conversation management** — Create, star/unstar, and delete saved chat sessions from the results view
+- **LLM-powered responses** — User messages are answered by Google Gemini (2.5 Flash), with full conversation context passed for multi-turn dialogue
+- **Typewriter effect** — Assistant replies type out character-by-character for a polished chatbot feel
+- **Guided landing page** — Users describe their situation on the home page and are routed into a new chat session on the results page
+
 ## Tech Stack
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, React Router, React Query
 - **Backend:** Node.js, Express, CORS, dotenv
 - **Database:** PostgreSQL (`pg` driver)
+- **LLM:** Google Gemini 2.5 Flash (`@google/generative-ai`)
 - **Authentication:** Not implemented yet (planned future work)
-- **External APIs/Services:** None required for the vertical slice in this iteration
 
 ## Architecture Diagram
 ```mermaid
@@ -18,6 +26,8 @@ flowchart LR
     FE -->|HTTP GET/POST /api/sessions/:id/messages| BE[Backend Express API\n(Node on :3001)]
     BE -->|SQL queries| DB[(PostgreSQL aiddb)]
     DB -->|Rows returned| BE
+    BE -->|Chat prompt + history| LLM[Google Gemini 2.5 Flash]
+    LLM -->|Generated reply| BE
     BE -->|JSON response| FE
     FE -->|Updated thread shown| U
 ```
@@ -78,9 +88,12 @@ The checked-in schema and seed data already include the `chat_session.is_starred
 cp backend/.env.example backend/.env
 ```
 
-Edit `backend/.env` as needed for your local PostgreSQL credentials.
+Edit `backend/.env` as needed for your local PostgreSQL credentials and add your Gemini API key:
+```
+GEMINI_API_KEY=your_key_from_https://aistudio.google.com/apikey
+```
 
-6. **(Optional) Configure frontend API base URL**  
+7. **(Optional) Configure frontend API base URL**  
 If your backend runs somewhere other than `http://localhost:3001`, create `frontend/.env`:
 ```bash
 VITE_API_BASE_URL=http://localhost:3001
@@ -102,33 +115,35 @@ Open in browser:
 - Frontend: `http://localhost:8080`
 - Backend health check: `http://localhost:3001/health`
 
-## Verifying the Vertical Slice (Persistent Chat Message)
+## Verifying the Vertical Slice
 
-### Feature behavior
-The **Send** button on the Search Results page now performs a full stack flow:
-1. Frontend sends `POST /api/sessions/1/messages`
-2. Backend inserts into `chat_message`
-3. Backend returns inserted message JSON
-4. Frontend appends/render the message immediately
-5. Refresh still shows the message because it reloads from DB (`GET /api/sessions/1/messages`)
+### Full-stack chat with LLM
+The **Send** button on the Search Results page performs a full stack flow:
+1. Frontend sends `POST /api/sessions/:id/messages` with the user's text
+2. Backend inserts the user message into `chat_message`
+3. Backend loads conversation history and sends it to Google Gemini
+4. Gemini returns an assistant reply; backend saves it to `chat_message`
+5. Backend returns both messages to the frontend
+6. Frontend displays the user message instantly, then types out the assistant reply character-by-character
+7. Refresh still shows all messages because they reload from DB (`GET /api/sessions/:id/messages`)
 
-The saved conversation list also supports session management:
+### Conversation management
 1. Users can star a conversation to pin it near the top of the list.
 2. Users can collapse or reveal the starred section from the results page.
-3. Users can permanently delete a conversation, which also removes its saved messages through the database relationship.
+3. Users can permanently delete a conversation, which also removes its saved messages through the database cascade.
 
 ### Manual verification steps
 1. Start backend + frontend.
-2. Navigate to **Search Results** (`/results`).
-3. Type a message and click the **Send** button.
-4. Confirm the message appears in the chat thread.
+2. Navigate to the home page (`/`).
+3. Type a housing-related question (e.g. "How do I apply for Section 8?") and press Send.
+4. Confirm you are taken to the results page and the assistant reply types out.
 5. Refresh the browser page.
-6. Confirm the same message is still visible.
+6. Select the conversation from the list and confirm all messages are still visible.
 
 ### Database verification (SQL)
-Run this query to verify persisted messages for the demo session:
+Run this query to verify persisted messages for a session:
 
 ```bash
-psql -d aiddb -c "SELECT message_id, session_id, sender_type, message_text, timestamp FROM chat_message WHERE session_id = 1 ORDER BY message_id DESC LIMIT 10;"
+psql -d aiddb -c "SELECT message_id, session_id, sender_type, message_text, timestamp FROM chat_message ORDER BY message_id DESC LIMIT 10;"
 ```
 

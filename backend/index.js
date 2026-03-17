@@ -1,10 +1,22 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import pool from "./db.js";
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const geminiModel = genAI.getGenerativeModel({
+  model: "gemini-2.5-flash",
+  systemInstruction:
+    "You are HousingAid, a helpful assistant for finding government aid programs, " +
+    "especially housing assistance. Provide clear, empathetic, and actionable guidance " +
+    "about eligibility requirements, application processes, and available resources. " +
+    "Keep responses concise but thorough. If you are unsure about specific details, " +
+    "recommend the user contact their local housing authority or 211 helpline.",
+});
 
 app.use(cors());
 app.use(express.json());
@@ -218,15 +230,46 @@ app.post("/api/sessions/:sessionId/messages", async (req, res) => {
       return res.status(404).json({ error: "Session not found." });
     }
 
-    const { rows } = await pool.query(
+    const { rows: userRows } = await pool.query(
       `INSERT INTO chat_message (session_id, sender_type, message_text, "timestamp")
        VALUES ($1, $2, $3, CURRENT_TIME)
        RETURNING message_id, session_id, sender_type, message_text, "timestamp"`,
       [sessionId, senderType, messageText.trim()]
     );
+    const savedUserMessage = userRows[0];
 
-    return res.status(201).json(rows[0]);
+    if (senderType !== "user") {
+      return res.status(201).json({ userMessage: savedUserMessage, assistantMessage: null });
+    }
+
+    const { rows: historyRows } = await pool.query(
+      `SELECT sender_type, message_text FROM chat_message
+       WHERE session_id = $1 ORDER BY message_id ASC`,
+      [sessionId]
+    );
+
+    const chatHistory = historyRows.slice(0, -1).map((row) => ({
+      role: row.sender_type === "user" ? "user" : "model",
+      parts: [{ text: row.message_text }],
+    }));
+
+    const chat = geminiModel.startChat({ history: chatHistory });
+    const result = await chat.sendMessage(messageText.trim());
+    const assistantText = result.response.text();
+
+    const { rows: assistantRows } = await pool.query(
+      `INSERT INTO chat_message (session_id, sender_type, message_text, "timestamp")
+       VALUES ($1, 'assistant', $2, CURRENT_TIME)
+       RETURNING message_id, session_id, sender_type, message_text, "timestamp"`,
+      [sessionId, assistantText]
+    );
+
+    return res.status(201).json({
+      userMessage: savedUserMessage,
+      assistantMessage: assistantRows[0],
+    });
   } catch (err) {
+    console.error("Message route error:", err);
     return res.status(500).json({ error: "Failed to save message.", details: err.message });
   }
 });
