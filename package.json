@@ -1,0 +1,17 @@
+{
+  "name": "gov-aid-assistance",
+  "private": true,
+  "scripts": {
+    "install-deps": "npm run install-deps:frontend && npm run install-deps:backend",
+    "install-deps:frontend": "npm install --prefix frontend",
+    "install-deps:backend": "npm install --prefix backend",
+    "dev": "npm run dev --prefix frontend",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "start:backend": "npm run start --prefix backend",
+    "build": "npm run build --prefix frontend",
+    "preview": "npm run preview --prefix frontend",
+    "lint": "npm run lint --prefix frontend",
+    "test": "npm run test --prefix frontend"
+  }
+}
