@@ -27,6 +27,11 @@ interface ApiMessage {
   message_text: string;
 }
 
+interface SendMessageResponse {
+  userMessage: ApiMessage;
+  assistantMessage: ApiMessage | null;
+}
+
 interface ApiSession {
   session_id: number;
   message_count: number;
@@ -64,7 +69,10 @@ const ResultsPage = () => {
     type: "star" | "delete";
   } | null>(null);
   const [sessionPendingDelete, setSessionPendingDelete] = useState<ApiSession | null>(null);
+  const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
+  const [typingDisplayLength, setTypingDisplayLength] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const selectedSession = sessions.find((session) => session.session_id === selectedSessionId) ?? null;
   const starredSessions = sessions.filter((session) => session.is_starred);
@@ -176,8 +184,33 @@ const ResultsPage = () => {
   }, [loadSessions]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    }
+  }, [messages, typingDisplayLength]);
+
+  useEffect(() => {
+    if (!typingMessageId) return;
+
+    const fullMessage = messages.find((m) => m.id === typingMessageId);
+    if (!fullMessage) {
+      setTypingMessageId(null);
+      return;
+    }
+
+    if (typingDisplayLength >= fullMessage.content.length) {
+      setTypingMessageId(null);
+      return;
+    }
+
+    const speed = 8;
+    const timer = setTimeout(() => {
+      setTypingDisplayLength((prev) => Math.min(prev + speed, fullMessage.content.length));
+    }, 15);
+
+    return () => clearTimeout(timer);
+  }, [typingMessageId, typingDisplayLength, messages]);
 
   useEffect(() => {
     const bootstrapInitialMessage = async () => {
@@ -251,8 +284,15 @@ const ResultsPage = () => {
         throw new Error("Unable to save message.");
       }
 
-      const savedMessage = (await response.json()) as ApiMessage;
-      setMessages((prev) => [...prev, mapApiMessage(savedMessage)]);
+      const data = (await response.json()) as SendMessageResponse;
+      const newMessages: Message[] = [mapApiMessage(data.userMessage)];
+      if (data.assistantMessage) {
+        const mapped = mapApiMessage(data.assistantMessage);
+        newMessages.push(mapped);
+        setTypingDisplayLength(0);
+        setTypingMessageId(mapped.id);
+      }
+      setMessages((prev) => [...prev, ...newMessages]);
       setInput("");
       await loadSessions();
     } catch (err) {
@@ -537,7 +577,7 @@ const ResultsPage = () => {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {error && <p className="text-sm text-destructive">{error}</p>}
         {isLoadingMessages && <p className="text-sm text-muted-foreground">Loading conversation...</p>}
         {messages.length === 0 && (
@@ -545,38 +585,43 @@ const ResultsPage = () => {
             Start a conversation by sending your first message.
           </div>
         )}
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={cn("flex gap-2 max-w-[85%]", msg.role === "user" ? "ml-auto flex-row-reverse" : "")}
-          >
-            {msg.role === "assistant" && (
-              <div className="w-7 h-7 rounded-full bg-accent/15 flex items-center justify-center shrink-0 mt-1">
-                <Bot className="w-4 h-4 text-accent" />
-              </div>
-            )}
-            {msg.role === "user" && (
-              <Avatar className="w-7 h-7 shrink-0 mt-1">
-                <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                  <User className="w-3.5 h-3.5" />
-                </AvatarFallback>
-              </Avatar>
-            )}
+        {messages.map((msg) => {
+          const isTyping = msg.id === typingMessageId;
+          const displayContent = isTyping ? msg.content.substring(0, typingDisplayLength) : msg.content;
+
+          return (
             <div
-              className={cn(
-                "rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap",
-                msg.role === "user"
-                  ? "bg-primary text-primary-foreground rounded-br-md"
-                  : "bg-card border border-border rounded-bl-md"
+              key={msg.id}
+              className={cn("flex gap-2 max-w-[85%]", msg.role === "user" ? "ml-auto flex-row-reverse" : "")}
+            >
+              {msg.role === "assistant" && (
+                <div className="w-7 h-7 rounded-full bg-accent/15 flex items-center justify-center shrink-0 mt-1">
+                  <Bot className="w-4 h-4 text-accent" />
+                </div>
               )}
-              dangerouslySetInnerHTML={{
-                __html: msg.content
-                  .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-                  .replace(/\n/g, "<br/>"),
-              }}
-            />
-          </div>
-        ))}
+              {msg.role === "user" && (
+                <Avatar className="w-7 h-7 shrink-0 mt-1">
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                    <User className="w-3.5 h-3.5" />
+                  </AvatarFallback>
+                </Avatar>
+              )}
+              <div
+                className={cn(
+                  "rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap",
+                  msg.role === "user"
+                    ? "bg-primary text-primary-foreground rounded-br-md"
+                    : "bg-card border border-border rounded-bl-md"
+                )}
+                dangerouslySetInnerHTML={{
+                  __html: displayContent
+                    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                    .replace(/\n/g, "<br/>"),
+                }}
+              />
+            </div>
+          );
+        })}
         <div ref={bottomRef} />
       </div>
 
