@@ -61,7 +61,7 @@ const ResultsPage = () => {
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [isBootstrappingThread, setIsBootstrappingThread] = useState(false);
+  const [isBootstrappingThread, setIsBootstrappingThread] = useState(!!initialMessage);
   const [error, setError] = useState("");
   const [showStarredSessions, setShowStarredSessions] = useState(true);
   const [pendingSessionAction, setPendingSessionAction] = useState<{
@@ -98,7 +98,7 @@ const ResultsPage = () => {
     }
   }, []);
 
-  const loadMessages = useCallback(async (sessionId: number) => {
+  const loadMessages = useCallback(async (sessionId: number): Promise<Message[]> => {
     setIsLoadingMessages(true);
     setError("");
 
@@ -110,9 +110,12 @@ const ResultsPage = () => {
       }
 
       const data = (await response.json()) as ApiMessage[];
-      setMessages(data.map(mapApiMessage));
+      const mapped = data.map(mapApiMessage);
+      setMessages(mapped);
+      return mapped;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load chat history.");
+      return [];
     } finally {
       setIsLoadingMessages(false);
     }
@@ -242,7 +245,12 @@ const ResultsPage = () => {
         }
 
         await loadSessions();
-        await loadMessages(newSession.session_id);
+        const loaded = await loadMessages(newSession.session_id);
+        const lastAssistant = [...loaded].reverse().find((m) => m.role === "assistant");
+        if (lastAssistant) {
+          setTypingDisplayLength(0);
+          setTypingMessageId(lastAssistant.id);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unable to start conversation.");
       } finally {
@@ -579,8 +587,15 @@ const ResultsPage = () => {
       {/* Messages */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {isLoadingMessages && <p className="text-sm text-muted-foreground">Loading conversation...</p>}
-        {messages.length === 0 && (
+        {(isLoadingMessages || isBootstrappingThread) && (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">
+              {isBootstrappingThread ? "Starting conversation..." : "Loading conversation..."}
+            </p>
+          </div>
+        )}
+        {!isLoadingMessages && !isBootstrappingThread && messages.length === 0 && (
           <div className="text-center text-muted-foreground text-sm py-12">
             Start a conversation by sending your first message.
           </div>

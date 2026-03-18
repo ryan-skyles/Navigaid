@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Send, Mic, ImagePlus } from "lucide-react";
+import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Logo from "@/assets/Logo.png";
 
@@ -72,17 +72,7 @@ const Index = () => {
             rows={4}
           />
 
-          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-white border-t border-gray-100">
-            <div className="flex gap-2">
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-gray-500 hover:bg-blue-50">
-                <ImagePlus className="w-4 h-4" />
-              </Button>
-
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-gray-500 hover:bg-blue-50">
-                <Mic className="w-4 h-4" />
-              </Button>
-            </div>
-
+          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-end px-4 py-3 bg-white border-t border-gray-100">
             <Button
               size="icon"
               className="h-9 w-9 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow"
