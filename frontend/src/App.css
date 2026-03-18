@@ -1,8 +1,69 @@
+#root,
+html,
+body {
+  height: 100%;
+}
+
 #root {
   width: 100%;
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.app-header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(59, 130, 246, 0.10),
+    rgba(16, 185, 129, 0.08),
+    rgba(59, 130, 246, 0.10)
+  );
+  opacity: 0.9;
+  pointer-events: none;
+  animation: header-sheen 10s linear infinite;
+  background-size: 200% 100%;
+}
+
+.app-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(59, 130, 246, 0.40),
+    rgba(16, 185, 129, 0.35),
+    rgba(59, 130, 246, 0.40),
+    transparent
+  );
+  pointer-events: none;
+}
+
+@keyframes header-sheen {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-header::before {
+    animation: none;
+  }
 }
 
 .logo {

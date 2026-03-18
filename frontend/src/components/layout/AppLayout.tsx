@@ -4,14 +4,14 @@ import WavyFooter from "./WavyFooter";
 
 const AppLayout = () => {
   return (
-    <div className="min-h-screen w-full flex flex-col bg-background relative">
+    <div className="h-screen w-full flex flex-col bg-background relative overflow-hidden">
       <AppHeader />
-      <main className="flex-1 flex flex-col items-center">
+      <main className="flex-1 flex flex-col items-center pt-20 overflow-y-auto">
         <div className="w-full max-w-[600px] px-4">
           <Outlet />
         </div>
+        <WavyFooter />
       </main>
-      <WavyFooter />
     </div>
   );
 };
