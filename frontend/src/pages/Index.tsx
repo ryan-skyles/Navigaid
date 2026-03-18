@@ -25,6 +25,10 @@ const Index = () => {
       {/* LOGO */}
       <img src={Logo} alt="HousingAid Logo" className="h-44 md:h-52 opacity-90" />
 
+
+      <br />
+      <br />
+      
       {/* TEXT */}
       <div className="text-center max-w-2xl space-y-3">
         <h1 className="text-4xl md:text-4xl font-semibold tracking-[-0.03em] text-gray-700 leading-tight -mt-16">
