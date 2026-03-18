@@ -12,6 +12,21 @@ This iteration introduces a backend service and persistent data layer, transform
 - **Typewriter effect** — Assistant replies type out character-by-character for a polished chatbot feel
 - **Guided landing page** — Users describe their situation on the home page and are routed into a new chat session on the results page
 
+## EARS Requirements
+**Complete**
+- The system shall securely store and protect all user-provided personal and housing information while limiting AI’s ability to access such information 
+- The system shall track users’ and processes’ data to better understand the users’ needs and situations.
+
+**Not Complete**
+- The system shall provide centralized access to government aid information.
+- The system shall display clear, plain-language explanations of eligibility requirements.
+- When a user submits an application, the system shall update the application status.
+- When application status changes, the system shall notify the user.
+- When the user creates an account, the listings and information shall be tailored to the user’s location by default.
+- When an application is approved, the next steps will be linked.
+- While a user is on a waitlist/pending, the system shall show waitlist/pending status and any required user actions.
+- While the user is logged in on the website, the views will be customized to them to make it feel more comfortable and personal
+
 ## Tech Stack
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, React Router, React Query
 - **Backend:** Node.js, Express, CORS, dotenv
