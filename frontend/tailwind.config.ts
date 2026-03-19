@@ -2,7 +2,12 @@ import type { Config } from "tailwindcss";
 
 export default {
   darkMode: ["class"],
-  content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  content: [
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
+  ],
   prefix: "",
   theme: {
     container: {
@@ -14,70 +19,97 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["DM Sans", "sans-serif"],
-        display: ["Outfit", "sans-serif"],
+        headline: ["Manrope", "sans-serif"],
+        body: ["Plus Jakarta Sans", "sans-serif"],
+        label: ["Plus Jakarta Sans", "sans-serif"],
       },
       colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: "var(--primary)",
+          foreground: "var(--on-primary)",
+          container: "var(--primary-container)",
+          "on-container": "var(--on-primary-container)",
+          dim: "var(--primary-dim)",
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+          DEFAULT: "var(--secondary)",
+          foreground: "var(--on-secondary)",
+          container: "var(--secondary-container)",
+          "on-container": "var(--on-secondary-container)",
+          dim: "var(--secondary-dim)",
+        },
+        tertiary: {
+          DEFAULT: "var(--tertiary)",
+          foreground: "var(--on-tertiary)",
+          container: "var(--tertiary-container)",
+          "on-container": "var(--on-tertiary-container)",
+        },
+        error: {
+          DEFAULT: "var(--error)",
+          foreground: "var(--on-error)",
+          container: "var(--error-container)",
         },
         destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
+          DEFAULT: "var(--destructive)",
+          foreground: "var(--destructive-foreground)",
         },
-        muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
+        surface: {
+          DEFAULT: "var(--surface)",
+          dim: "var(--surface-dim)",
+          bright: "var(--surface-bright)",
+          variant: "var(--surface-variant)",
+          tint: "var(--surface-tint)",
+          "container-lowest": "var(--surface-container-lowest)",
+          "container-low": "var(--surface-container-low)",
+          container: "var(--surface-container)",
+          "container-high": "var(--surface-container-high)",
+          "container-highest": "var(--surface-container-highest)",
         },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
+        background: "var(--background)",
+        foreground: "var(--on-surface)",
+        "on-surface": "var(--on-surface)",
+        "on-surface-variant": "var(--on-surface-variant)",
+        "on-background": "var(--on-background)",
+        outline: {
+          DEFAULT: "var(--outline)",
+          variant: "var(--outline-variant)",
         },
-        popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
+        border: "var(--border)",
+        input: "var(--input)",
+        ring: "var(--ring)",
+        inverse: {
+          surface: "var(--inverse-surface)",
+          "on-surface": "var(--inverse-on-surface)",
+          primary: "var(--inverse-primary)",
         },
         card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
+          DEFAULT: "var(--surface-container-lowest)",
+          foreground: "var(--on-surface)",
         },
-        success: {
-          DEFAULT: "hsl(var(--success))",
-          foreground: "hsl(var(--success-foreground))",
+        popover: {
+          DEFAULT: "var(--surface-container-lowest)",
+          foreground: "var(--on-surface)",
         },
-        warning: {
-          DEFAULT: "hsl(var(--warning))",
-          foreground: "hsl(var(--warning-foreground))",
+        muted: {
+          DEFAULT: "var(--surface-container-high)",
+          foreground: "var(--on-surface-variant)",
         },
-        neutral: {
-          DEFAULT: "hsl(var(--neutral))",
-          foreground: "hsl(var(--neutral-foreground))",
-        },
-        sidebar: {
-          DEFAULT: "hsl(var(--sidebar-background))",
-          foreground: "hsl(var(--sidebar-foreground))",
-          primary: "hsl(var(--sidebar-primary))",
-          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
-          accent: "hsl(var(--sidebar-accent))",
-          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
-          border: "hsl(var(--sidebar-border))",
-          ring: "hsl(var(--sidebar-ring))",
+        accent: {
+          DEFAULT: "var(--secondary-container)",
+          foreground: "var(--on-secondary-container)",
         },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        DEFAULT: "0.25rem",
+        lg: "0.5rem",
+        xl: "0.75rem",
+        "2xl": "1rem",
+        "3xl": "1.25rem",
+        full: "9999px",
+      },
+      boxShadow: {
+        editorial: "0 8px 32px 0 rgba(46, 51, 58, 0.05)",
+        "editorial-hover": "0 24px 48px -12px rgba(0,0,0,0.06)",
       },
       keyframes: {
         "accordion-down": {

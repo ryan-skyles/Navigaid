@@ -1,8 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Send } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import Logo from "@/assets/Logo.png";
 
 const Index = () => {
   const [message, setMessage] = useState("");
@@ -20,72 +17,188 @@ const Index = () => {
     }
   };
 
+  const suggestedTags = ["Healthcare", "Housing Vouchers", "Small Business Grants", "Emergency Relief"];
+
   return (
-    <div className="flex flex-col items-center px-6 pt-4 pb-6 gap-6 bg-gradient-to-b from-white to-blue-50 font-sans -mt-6">
-      {/* LOGO */}
-      <img src={Logo} alt="HousingAid Logo" className="h-44 md:h-52 opacity-90" />
+    <div className="relative overflow-hidden bg-surface">
+      {/* Hero Section */}
+      <section className="relative min-h-[80vh] flex flex-col items-center justify-center pt-12 pb-64 px-6">
+        <div className="max-w-4xl w-full text-center z-10 space-y-12">
+          <div className="space-y-6">
+            <span className="inline-block px-4 py-1.5 rounded-full bg-secondary-container text-[var(--on-secondary-container)] text-xs font-bold tracking-widest uppercase font-label">
+              Empowering Communities
+            </span>
+            <h1 className="text-5xl md:text-7xl font-headline font-extrabold text-on-surface tracking-tighter leading-[1.1]">
+              Let us help you find the <br />
+              <span className="text-primary italic">aid you need.</span>
+            </h1>
+            <p className="text-lg md:text-xl text-on-surface-variant max-w-2xl mx-auto leading-relaxed font-body">
+              Search through thousands of verified aid programs across healthcare, education,
+              and disaster relief. Simplified for those who matter most.
+            </p>
+          </div>
 
+          {/* Pill Search Bar */}
+          <div className="relative max-w-3xl mx-auto">
+            <div className="editorial-shadow p-2 bg-[var(--surface-container-lowest)] rounded-full flex items-center group transition-all duration-300 focus-within:ring-4 focus-within:ring-primary-container/20">
+              <div className="pl-6 text-primary flex items-center">
+                <span className="material-symbols-outlined text-2xl">search</span>
+              </div>
+              <input
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="w-full bg-transparent border-none focus:ring-0 px-6 py-4 text-on-surface placeholder:text-[var(--outline-variant)] font-body text-lg focus:outline-none"
+                placeholder="Describe the type of support you are looking for..."
+                type="text"
+              />
+              <button
+                onClick={handleSubmit}
+                disabled={!message.trim()}
+                className="bg-primary hover:bg-primary-dim text-[var(--on-primary)] px-8 md:px-10 py-4 rounded-full font-headline font-bold transition-all duration-300 transform active:scale-[0.98] shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                Find Aid
+              </button>
+            </div>
 
-      <br />
-      <br />
-      
-      {/* TEXT */}
-      <div className="text-center max-w-2xl space-y-3">
-        <h1 className="text-4xl md:text-4xl font-semibold tracking-[-0.03em] text-gray-700 leading-tight -mt-16">
-          Welcome to GovAid Assistance</h1>
-
-        <p className="text-gray-600 text-[15px] leading-relaxed">
-          GovAid Assistance helps individuals and families find housing aid programs more easily. Share a bit about your situation, and we’ll guide you to resources that fit your needs.
-        </p>
-      </div>
-
-      {/* IMAGES */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-5xl">
-        <img
-          src="https://images.unsplash.com/photo-1609220136736-443140cffec6?auto=format&fit=crop&w=800&q=80"
-          alt="Happy family"
-          className="w-full h-52 object-cover rounded-3xl shadow-sm hover:scale-[1.02] transition"
-        />
-
-        <img
-          src="https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80"
-          alt="Bright modern apartment"
-          className="w-full h-52 object-cover rounded-3xl shadow-sm hover:scale-[1.02] transition"
-        />
-
-        <img
-          src="https://images.unsplash.com/photo-1460317442991-0ec209397118?auto=format&fit=crop&w=800&q=80"
-          alt="People receiving help"
-          className="w-full h-52 object-cover rounded-3xl shadow-sm hover:scale-[1.02] transition"
-        />
-      </div>
-
-      {/* CHAT BOX */}
-      <div className="w-full max-w-md">
-        <div className="relative rounded-3xl border border-gray-200 bg-white shadow-lg overflow-hidden">
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Please describe your situation..."
-            className="w-full resize-none border-0 bg-transparent px-5 pt-5 pb-16 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none min-h-[130px]"
-            rows={4}
-          />
-
-          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-end px-4 py-3 bg-white border-t border-gray-100">
-            <Button
-              size="icon"
-              className="h-9 w-9 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow"
-              onClick={handleSubmit}
-              disabled={!message.trim()}
-            >
-              <Send className="w-4 h-4" />
-            </Button>
+            {/* Suggested Tags */}
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              <span className="text-sm font-label text-on-surface-variant mr-2 py-2">Suggested:</span>
+              {suggestedTags.map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => {
+                    setMessage(tag);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-white border border-[var(--outline-variant)]/10 text-on-surface-variant hover:bg-secondary-container hover:text-[var(--on-secondary-container)] hover:border-transparent transition-all text-sm font-medium"
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-    </div>
 
+        {/* Wave backdrop */}
+        <div className="absolute bottom-0 left-0 w-full overflow-hidden leading-[0]">
+          <svg
+            className="relative block w-full"
+            preserveAspectRatio="none"
+            viewBox="0 0 1440 200"
+            xmlns="http://www.w3.org/2000/svg"
+            style={{ height: "200px" }}
+          >
+            <path
+              d="M0,60 C240,120 480,20 720,70 C960,120 1200,30 1440,60 L1440,150 C1200,120 960,180 720,150 C480,120 240,170 0,160 Z"
+              className="fill-secondary-container/15"
+            />
+            <path
+              d="M0,90 C320,140 640,50 960,100 C1120,120 1280,80 1440,95 L1440,170 C1280,185 1080,150 840,170 C600,190 360,160 0,180 Z"
+              className="fill-secondary-container/10"
+            />
+          </svg>
+        </div>
+      </section>
+
+      {/* Smart Match Card */}
+      <section className="max-w-7xl w-full mx-auto px-6 -mt-0 z-10 relative mb-24">
+        <div className="bg-primary p-8 md:p-12 rounded-xl text-[var(--on-primary)] flex flex-col md:flex-row md:items-center justify-between relative overflow-hidden group">
+          <div className="z-10 flex-1">
+            <span className="material-symbols-outlined text-4xl mb-6" style={{ fontVariationSettings: "'FILL' 1" }}>
+              auto_awesome
+            </span>
+            <h3 className="text-2xl md:text-3xl font-headline font-bold mb-2">Smart Match</h3>
+            <p className="text-white/80 font-body max-w-xl">
+              AI-powered filtering based on your unique needs and eligibility criteria.
+              Describe your situation and let our system match you with the most relevant programs.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("/results", { state: { initialMessage: "What government aid programs am I eligible for?" } })}
+            className="mt-8 md:mt-0 text-white font-bold flex items-center gap-2 group-hover:gap-4 transition-all z-10 bg-white/15 hover:bg-white/25 px-8 py-4 rounded-full shrink-0"
+          >
+            Try it now <span className="material-symbols-outlined">arrow_forward</span>
+          </button>
+          <div className="absolute top-0 right-0 p-8 opacity-10">
+            <span className="material-symbols-outlined text-[8rem]">security</span>
+          </div>
+        </div>
+      </section>
+
+      {/* Featured Assistance Section */}
+      <section className="bg-[var(--surface-container-low)] py-24 md:py-32 px-6 md:px-12">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 gap-4">
+            <div>
+              <h2 className="text-3xl md:text-4xl font-headline font-extrabold text-on-surface mb-4">
+                Featured Assistance
+              </h2>
+              <p className="text-on-surface-variant max-w-xl font-body">
+                Curated programs with high success rates and streamlined application processes.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate("/situations")}
+              className="text-primary font-bold flex items-center gap-2 hover:underline"
+            >
+              View all categories <span className="material-symbols-outlined">chevron_right</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              {
+                icon: "medical_services",
+                title: "Community Health Grant",
+                desc: "Direct financial support for specialized treatments and rehabilitation services for low-income families.",
+                tag: "Verified",
+              },
+              {
+                icon: "school",
+                title: "Edu-Future Scholarship",
+                desc: "Vocational training and university subsidies for students pursuing careers in sustainable technologies.",
+                tag: "Fast-Track",
+              },
+              {
+                icon: "home_repair_service",
+                title: "Housing Stability Fund",
+                desc: "Temporary housing assistance and renovation grants for areas affected by recent climate events.",
+                tag: "Active Relief",
+              },
+            ].map((card) => (
+              <div
+                key={card.title}
+                className="bg-[var(--surface-container-lowest)] rounded-xl p-8 border border-[var(--outline-variant)]/10 hover:shadow-editorial-hover transition-shadow group"
+              >
+                <div className="h-12 w-12 rounded-xl bg-secondary-container flex items-center justify-center text-primary mb-6 group-hover:scale-110 transition-transform">
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ fontVariationSettings: "'FILL' 1" }}
+                  >
+                    {card.icon}
+                  </span>
+                </div>
+                <h4 className="text-xl font-headline font-bold mb-3">{card.title}</h4>
+                <p className="text-on-surface-variant text-sm mb-6 leading-relaxed font-body">
+                  {card.desc}
+                </p>
+                <div className="flex items-center justify-between pt-6 border-t border-[var(--outline-variant)]/5">
+                  <span className="text-xs font-bold text-[var(--outline)] uppercase tracking-wider">
+                    {card.tag}
+                  </span>
+                  <button
+                    onClick={() => navigate("/situations")}
+                    className="text-primary text-sm font-bold"
+                  >
+                    Apply Now
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
   );
 };
 

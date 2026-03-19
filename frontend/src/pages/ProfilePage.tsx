@@ -1,75 +1,120 @@
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { User, ExternalLink } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
-const statusStyles: Record<string, string> = {
-  approved: "bg-success text-success-foreground",
-  pending: "bg-warning text-warning-foreground",
-  waitlist: "bg-neutral text-neutral-foreground",
+const statusConfig: Record<string, { bg: string; text: string }> = {
+  approved: { bg: "bg-emerald-100", text: "text-emerald-700" },
+  pending: { bg: "bg-amber-100", text: "text-amber-700" },
+  waitlist: { bg: "bg-slate-100", text: "text-slate-500" },
 };
 
-// Mock data — will be replaced with backend data
 const mockApplications = [
   {
     id: "1",
+    icon: "home",
     program: "Greenfield Apartments",
     description: "Affordable Housing – 2BR unit, $850/mo",
     status: "approved",
+    advisor: "Elena Rodriguez",
   },
   {
     id: "2",
+    icon: "confirmation_number",
     program: "Section 8 Voucher",
     description: "Housing Choice Voucher Program",
     status: "pending",
+    advisor: "Marcus Chen",
   },
   {
     id: "3",
+    icon: "accessible",
     program: "Riverside Community",
     description: "Senior & Disability Housing – 1BR",
     status: "waitlist",
+    advisor: "Elena Rodriguez",
   },
 ];
 
 const ProfilePage = () => {
+  const navigate = useNavigate();
+
   return (
-    <div className="flex-1 flex flex-col px-5 py-6 gap-6">
-      {/* User info */}
-      <div className="flex items-center gap-4">
-        <Avatar className="w-14 h-14 bg-primary/10">
-          <AvatarFallback className="bg-primary/10 text-primary">
-            <User className="w-7 h-7" />
-          </AvatarFallback>
-        </Avatar>
+    <div className="space-y-10">
+      {/* Header */}
+      <div className="mb-4">
+        <h2 className="text-4xl md:text-5xl font-extrabold font-headline tracking-tight text-on-surface mb-4">
+          Profile
+        </h2>
+        <p className="text-on-surface-variant text-lg max-w-2xl font-body">
+          Manage your account and track the status of your aid applications.
+        </p>
+      </div>
+
+      {/* User Card */}
+      <div className="bg-[var(--surface-container-lowest)] rounded-2xl p-8 editorial-shadow flex items-center gap-6">
+        <div className="w-20 h-20 rounded-full bg-secondary-container flex items-center justify-center">
+          <span className="material-symbols-outlined text-primary text-4xl">person</span>
+        </div>
         <div>
-          <h1 className="font-display text-xl font-bold text-foreground">Alex Johnson</h1>
-          <p className="text-sm text-muted-foreground">Housing applicant</p>
+          <h3 className="text-2xl font-bold font-headline text-on-surface">Alex Johnson</h3>
+          <p className="text-on-surface-variant font-body">Housing Applicant</p>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span className="text-xs font-medium text-on-surface-variant">Verified Status</span>
+          </div>
         </div>
       </div>
 
-      {/* Applications */}
-      <section>
-        <h2 className="font-display text-lg font-semibold text-foreground mb-3">Your Applications</h2>
-        <div className="flex flex-col gap-3">
-          {mockApplications.map((app) => (
-            <Card key={app.id} className="border-border">
-              <CardContent className="p-4 flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-foreground text-sm">{app.program}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{app.description}</p>
-                  <Badge className={cn("mt-2 text-[11px] capitalize", statusStyles[app.status])}>
-                    {app.status}
-                  </Badge>
-                </div>
-                <button className="text-primary hover:text-primary/80 shrink-0 mt-1" aria-label="View details">
-                  <ExternalLink className="w-4 h-4" />
-                </button>
-              </CardContent>
-            </Card>
-          ))}
+      {/* Applications Section */}
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-2xl font-bold font-headline text-on-surface">Your Applications</h3>
+          <button
+            onClick={() => navigate("/situations")}
+            className="text-primary font-bold flex items-center gap-2 hover:underline text-sm"
+          >
+            Browse Programs <span className="material-symbols-outlined text-sm">chevron_right</span>
+          </button>
         </div>
-      </section>
+
+        <div className="space-y-4">
+          {mockApplications.map((app) => {
+            const status = statusConfig[app.status] ?? statusConfig.waitlist;
+
+            return (
+              <div
+                key={app.id}
+                className="group bg-[var(--surface-container-lowest)] rounded-2xl p-6 transition-all hover:shadow-editorial-hover flex items-center justify-between border border-transparent hover:border-primary/10"
+              >
+                <div className="flex items-center gap-6 flex-1">
+                  <div className="w-14 h-14 rounded-xl bg-secondary-container flex items-center justify-center text-primary">
+                    <span
+                      className="material-symbols-outlined text-3xl"
+                      style={{ fontVariationSettings: "'FILL' 1" }}
+                    >
+                      {app.icon}
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-3 mb-1">
+                      <h4 className="text-lg font-bold font-headline text-on-surface">{app.program}</h4>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${status.bg} ${status.text}`}>
+                        {app.status}
+                      </span>
+                    </div>
+                    <p className="text-sm text-on-surface-variant">{app.description}</p>
+                    <p className="text-xs text-on-surface-variant mt-1">
+                      Advisor: <span className="font-medium">{app.advisor}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <button className="w-12 h-12 rounded-full flex items-center justify-center bg-[var(--surface-container)] hover:bg-primary hover:text-[var(--on-primary)] transition-all active:scale-90">
+                  <span className="material-symbols-outlined">arrow_forward</span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 };
