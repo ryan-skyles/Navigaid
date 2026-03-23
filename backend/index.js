@@ -283,11 +283,15 @@ app.get("/api/clients/:clientId/profile", async (req, res) => {
 
   try {
     const clientResult = await pool.query(
-      `SELECT client_id, firstName, lastName, email
-       FROM client
-       WHERE client_id = $1`,
-      [clientId]
-    );
+  `SELECT
+     client_id,
+     firstName AS "firstName",
+     lastName AS "lastName",
+     email
+   FROM client
+   WHERE client_id = $1`,
+  [clientId]
+  );
 
     if (clientResult.rowCount === 0) {
       return res.status(404).json({ error: "Client not found." });

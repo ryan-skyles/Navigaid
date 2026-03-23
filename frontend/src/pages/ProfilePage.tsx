@@ -49,7 +49,7 @@ const ProfilePage = () => {
   const [error, setError] = useState("");
 
   // temporary hardcoded user
-  const clientId = 2;
+  const clientId = 3;
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -87,10 +87,6 @@ const ProfilePage = () => {
       <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground leading-tight">
         {loading ? "Loading..." : `${client?.firstName ?? ""} ${client?.lastName ?? ""}`}
       </h1>
-
-      <p className="text-sm sm:text-base text-muted-foreground mt-1">
-        Housing applicant
-      </p>
 
       {client?.email && (
         <div className="flex items-center gap-2 mt-2 text-sm sm:text-base text-muted-foreground">
