@@ -1,120 +1,174 @@
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { User, Mail } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-const statusConfig: Record<string, { bg: string; text: string }> = {
-  approved: { bg: "bg-emerald-100", text: "text-emerald-700" },
-  pending: { bg: "bg-amber-100", text: "text-amber-700" },
-  waitlist: { bg: "bg-slate-100", text: "text-slate-500" },
+type Application = {
+  app_id: number;
+  date_submitted: string | null;
+  status: string;
+  last_updated: string | null;
+  program_name: string;
+  description_plain_language: string | null;
 };
 
-const mockApplications = [
-  {
-    id: "1",
-    icon: "home",
-    program: "Greenfield Apartments",
-    description: "Affordable Housing – 2BR unit, $850/mo",
-    status: "approved",
-    advisor: "Elena Rodriguez",
-  },
-  {
-    id: "2",
-    icon: "confirmation_number",
-    program: "Section 8 Voucher",
-    description: "Housing Choice Voucher Program",
-    status: "pending",
-    advisor: "Marcus Chen",
-  },
-  {
-    id: "3",
-    icon: "accessible",
-    program: "Riverside Community",
-    description: "Senior & Disability Housing – 1BR",
-    status: "waitlist",
-    advisor: "Elena Rodriguez",
-  },
-];
+type Client = {
+  client_id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+};
+
+type ProfileResponse = {
+  client: Client;
+  applications: Application[];
+};
+
+const statusStyles: Record<string, string> = {
+  approved: "bg-success text-success-foreground",
+  pending: "bg-warning text-warning-foreground",
+  waitlist: "bg-neutral text-neutral-foreground",
+  denied: "bg-destructive text-destructive-foreground",
+};
+
+const formatStatus = (status: string) => {
+  return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+};
+
+const formatDate = (dateString: string | null) => {
+  if (!dateString) return "N/A";
+  return new Date(dateString).toLocaleDateString();
+};
 
 const ProfilePage = () => {
-  const navigate = useNavigate();
+  const [client, setClient] = useState<Client | null>(null);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // temporary hardcoded user
+  const clientId = 2;
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response = await fetch(`http://localhost:3001/api/clients/${clientId}/profile`);
+
+        if (!response.ok) {
+          throw new Error("Failed to load profile data.");
+        }
+
+        const data: ProfileResponse = await response.json();
+        setClient(data.client);
+        setApplications(data.applications);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Something went wrong.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [clientId]);
 
   return (
-    <div className="space-y-10">
-      {/* Header */}
-      <div className="mb-4">
-        <h2 className="text-4xl md:text-5xl font-extrabold font-headline tracking-tight text-on-surface mb-4">
-          Profile
+    <div className="flex-1 flex flex-col px-5 py-6 gap-6 max-w-3xl mx-auto w-full">
+      <Card className="border-border shadow-sm">
+  <CardContent className="p-6 flex items-center gap-4">
+    <Avatar className="w-16 h-16 bg-primary/10 shrink-0">
+      <AvatarFallback className="bg-primary/10 text-primary">
+        <User className="w-8 h-8" />
+      </AvatarFallback>
+    </Avatar>
+
+    <div className="min-w-0">
+      <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground leading-tight">
+        {loading ? "Loading..." : `${client?.firstName ?? ""} ${client?.lastName ?? ""}`}
+      </h1>
+
+      <p className="text-sm sm:text-base text-muted-foreground mt-1">
+        Housing applicant
+      </p>
+
+      {client?.email && (
+        <div className="flex items-center gap-2 mt-2 text-sm sm:text-base text-muted-foreground">
+          <Mail className="w-4 h-4" />
+          <span className="truncate">{client.email}</span>
+        </div>
+      )}
+    </div>
+  </CardContent>
+</Card>
+
+      <section>
+        <h2 className="font-display text-lg font-semibold text-foreground mb-3">
+          Your Applications
         </h2>
-        <p className="text-on-surface-variant text-lg max-w-2xl font-body">
-          Manage your account and track the status of your aid applications.
-        </p>
-      </div>
 
-      {/* User Card */}
-      <div className="bg-[var(--surface-container-lowest)] rounded-2xl p-8 editorial-shadow flex items-center gap-6">
-        <div className="w-20 h-20 rounded-full bg-secondary-container flex items-center justify-center">
-          <span className="material-symbols-outlined text-primary text-4xl">person</span>
-        </div>
-        <div>
-          <h3 className="text-2xl font-bold font-headline text-on-surface">Alex Johnson</h3>
-          <p className="text-on-surface-variant font-body">Housing Applicant</p>
-          <div className="flex items-center gap-2 mt-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span className="text-xs font-medium text-on-surface-variant">Verified Status</span>
-          </div>
-        </div>
-      </div>
+        {loading && (
+          <Card>
+            <CardContent className="p-4 text-sm text-muted-foreground">
+              Loading applications...
+            </CardContent>
+          </Card>
+        )}
 
-      {/* Applications Section */}
-      <div>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-bold font-headline text-on-surface">Your Applications</h3>
-          <button
-            onClick={() => navigate("/situations")}
-            className="text-primary font-bold flex items-center gap-2 hover:underline text-sm"
-          >
-            Browse Programs <span className="material-symbols-outlined text-sm">chevron_right</span>
-          </button>
-        </div>
+        {!loading && error && (
+          <Card>
+            <CardContent className="p-4 text-sm text-destructive">
+              {error}
+            </CardContent>
+          </Card>
+        )}
 
-        <div className="space-y-4">
-          {mockApplications.map((app) => {
-            const status = statusConfig[app.status] ?? statusConfig.waitlist;
+        {!loading && !error && applications.length === 0 && (
+          <Card>
+            <CardContent className="p-4 text-sm text-muted-foreground">
+              No applications found.
+            </CardContent>
+          </Card>
+        )}
 
-            return (
-              <div
-                key={app.id}
-                className="group bg-[var(--surface-container-lowest)] rounded-2xl p-6 transition-all hover:shadow-editorial-hover flex items-center justify-between border border-transparent hover:border-primary/10"
-              >
-                <div className="flex items-center gap-6 flex-1">
-                  <div className="w-14 h-14 rounded-xl bg-secondary-container flex items-center justify-center text-primary">
-                    <span
-                      className="material-symbols-outlined text-3xl"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      {app.icon}
-                    </span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-3 mb-1">
-                      <h4 className="text-lg font-bold font-headline text-on-surface">{app.program}</h4>
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${status.bg} ${status.text}`}>
-                        {app.status}
-                      </span>
+        {!loading && !error && applications.length > 0 && (
+          <div className="flex flex-col gap-3">
+            {applications.map((app) => {
+              const normalizedStatus = app.status.toLowerCase();
+
+              return (
+                <Card key={app.app_id} className="border-border shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <p className="font-medium text-foreground text-sm sm:text-base">
+                        {app.program_name}
+                      </p>
+
+                      <Badge
+                        className={cn(
+                          "text-[11px] capitalize",
+                          statusStyles[normalizedStatus] || "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {formatStatus(app.status)}
+                      </Badge>
                     </div>
-                    <p className="text-sm text-on-surface-variant">{app.description}</p>
-                    <p className="text-xs text-on-surface-variant mt-1">
-                      Advisor: <span className="font-medium">{app.advisor}</span>
-                    </p>
-                  </div>
-                </div>
 
-                <button className="w-12 h-12 rounded-full flex items-center justify-center bg-[var(--surface-container)] hover:bg-primary hover:text-[var(--on-primary)] transition-all active:scale-90">
-                  <span className="material-symbols-outlined">arrow_forward</span>
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {app.description_plain_language || "No description available."}
+                    </p>
+
+                    <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
+                      <span>Submitted: {formatDate(app.date_submitted)}</span>
+                      <span>Updated: {formatDate(app.last_updated)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 };

@@ -274,6 +274,53 @@ app.post("/api/sessions/:sessionId/messages", async (req, res) => {
   }
 });
 
+app.get("/api/clients/:clientId/profile", async (req, res) => {
+  const clientId = Number.parseInt(req.params.clientId, 10);
+
+  if (Number.isNaN(clientId)) {
+    return res.status(400).json({ error: "Invalid client ID." });
+  }
+
+  try {
+    const clientResult = await pool.query(
+      `SELECT client_id, firstName, lastName, email
+       FROM client
+       WHERE client_id = $1`,
+      [clientId]
+    );
+
+    if (clientResult.rowCount === 0) {
+      return res.status(404).json({ error: "Client not found." });
+    }
+
+    const applicationsResult = await pool.query(
+      `SELECT
+        a.app_id,
+        a.date_submitted,
+        a.status,
+        a.last_updated,
+        ap.program_name,
+        ap.description_plain_language
+      FROM application a
+      JOIN aid_program ap
+        ON a.program_id = ap.program_id
+      WHERE a.client_id = $1
+      ORDER BY a.last_updated DESC NULLS LAST, a.app_id DESC`,
+      [clientId]
+    );
+
+    return res.json({
+      client: clientResult.rows[0],
+      applications: applicationsResult.rows,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: "Failed to fetch profile.",
+      details: err.message,
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
