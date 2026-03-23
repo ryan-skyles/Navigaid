@@ -1,176 +1,150 @@
--- =========================
--- LOCATION
--- =========================
-CREATE TABLE Location (
-    location_id SERIAL PRIMARY KEY,
-    city VARCHAR(100),
-    state VARCHAR(50),
-    zip_code VARCHAR(15),
-    county VARCHAR(100)
+-- Benefits guidance platform schema
+-- Core tables:
+--   login
+--   users
+--   applications
+--   user_applications
+--   chat_threads
+--   chat_messages
+--   required_documents
+
+DROP TABLE IF EXISTS chat_messages;
+DROP TABLE IF EXISTS chat_threads;
+DROP TABLE IF EXISTS user_applications;
+DROP TABLE IF EXISTS required_documents;
+DROP TABLE IF EXISTS login;
+DROP TABLE IF EXISTS applications;
+DROP TABLE IF EXISTS users;
+
+CREATE TABLE users (
+    user_id              INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    first_name           VARCHAR(100) NOT NULL,
+    last_name            VARCHAR(100) NOT NULL,
+    email                VARCHAR(255) NOT NULL UNIQUE,
+    phone                VARCHAR(25),
+    date_of_birth        DATE,
+    city                 VARCHAR(100),
+    state                VARCHAR(50),
+    zip_code             VARCHAR(15),
+    household_size       INTEGER,
+    income               INTEGER,
+    employment_status    VARCHAR(100),
+    housing_status       VARCHAR(100),
+    disability_status    VARCHAR(100),
+    veteran_status       VARCHAR(100),
+    preferred_language   VARCHAR(50) DEFAULT 'English',
+    created_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- =========================
--- USER
--- =========================
-CREATE TABLE client (
-    client_id SERIAL PRIMARY KEY,
-    firstName VARCHAR(100),
-    lastName VARCHAR(100),
-    email VARCHAR(150) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    phone VARCHAR(25),
-    pref_language VARCHAR(50),
-    account_creation_date DATE,
-    location_id INT,
-    FOREIGN KEY (location_id) REFERENCES Location(location_id)
+CREATE TABLE login (
+    user_id              INTEGER PRIMARY KEY,
+    username             VARCHAR(100) NOT NULL UNIQUE,
+    password_hash        VARCHAR(255) NOT NULL,
+    last_login_at        TIMESTAMP,
+    is_active            BOOLEAN NOT NULL DEFAULT TRUE,
+    CONSTRAINT fk_login_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE
 );
 
--- =========================
--- USER CASE PROFILE
--- =========================
-CREATE TABLE client_case_profile (
-    profile_id SERIAL PRIMARY KEY,
-    client_id INT UNIQUE,
-    employment_status VARCHAR(100),
-    household_size INT,
-    monthly_income INT,
-    housing_status VARCHAR(100),
-    disability_status INT,
-    veteran_status INT,
-    dependents VARCHAR(100),
-    last_updated DATE,
-    FOREIGN KEY (client_id) REFERENCES client(client_id) ON DELETE CASCADE
+CREATE TABLE applications (
+    application_id         INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    application_name       VARCHAR(150) NOT NULL UNIQUE,
+    category               VARCHAR(100) NOT NULL,
+    description            TEXT NOT NULL,
+    qualification_summary  TEXT,
+    official_url           VARCHAR(500) NOT NULL,
+    application_steps      TEXT NOT NULL
 );
 
--- =========================
--- AID PROGRAM
--- =========================
-CREATE TABLE Aid_program (
-    program_id SERIAL PRIMARY KEY,
-    program_name VARCHAR(150),
-    program_type VARCHAR(100),
-    description_plain_language TEXT,
-    website_url VARCHAR(255),
-    application_url VARCHAR(255),
-    managing_agency VARCHAR(150),
-    location_id INT,
-    FOREIGN KEY (location_id) REFERENCES Location(location_id)
+CREATE TABLE user_applications (
+    user_application_id   INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id               INTEGER NOT NULL,
+    application_id        INTEGER NOT NULL,
+    status                VARCHAR(50) NOT NULL,
+    date_started          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_updated          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    notes                 TEXT,
+    CONSTRAINT fk_user_applications_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_user_applications_application
+        FOREIGN KEY (application_id)
+        REFERENCES applications(application_id)
+        ON DELETE CASCADE,
+    CONSTRAINT uq_user_application UNIQUE (user_id, application_id),
+    CONSTRAINT chk_user_application_status
+        CHECK (
+            status IN (
+                'recommended',
+                'likely_match',
+                'documents_needed',
+                'ready_to_apply',
+                'official_application_started',
+                'submitted',
+                'follow_up_requested',
+                'approved',
+                'denied',
+                'closed'
+            )
+        )
 );
 
--- =========================
--- ELIGIBILITY CRITERIA
--- =========================
-CREATE TABLE Eligibility_criteria (
-    eligibility_id SERIAL PRIMARY KEY,
-    program_id INT,
-    min_income INT,
-    max_income INT,
-    household_size_limit INT,
-    age_requirement VARCHAR(50),
-    required_status VARCHAR(100),
-    description_plain_language TEXT,
-    FOREIGN KEY (program_id) REFERENCES Aid_program(program_id) ON DELETE CASCADE
+CREATE TABLE chat_threads (
+    thread_id             INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id               INTEGER NOT NULL,
+    title                 VARCHAR(255) NOT NULL,
+    created_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_archived           BOOLEAN NOT NULL DEFAULT FALSE,
+    CONSTRAINT fk_chat_threads_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE
 );
 
--- =========================
--- APPLICATION
--- =========================
-CREATE TABLE Application (
-    app_id SERIAL PRIMARY KEY,
-    client_id INT,
-    program_id INT,
-    date_submitted DATE,
-    status VARCHAR(50),
-    last_updated DATE,
-    FOREIGN KEY (client_id) REFERENCES client(client_id) ON DELETE CASCADE,
-    FOREIGN KEY (program_id) REFERENCES Aid_program(program_id) ON DELETE CASCADE
+CREATE TABLE chat_messages (
+    message_id            INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    thread_id             INTEGER NOT NULL,
+    sender_type           VARCHAR(20) NOT NULL,
+    message_text          TEXT NOT NULL,
+    created_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    sequence_number       INTEGER NOT NULL,
+    CONSTRAINT fk_chat_messages_thread
+        FOREIGN KEY (thread_id)
+        REFERENCES chat_threads(thread_id)
+        ON DELETE CASCADE,
+    CONSTRAINT uq_thread_sequence UNIQUE (thread_id, sequence_number),
+    CONSTRAINT chk_sender_type
+        CHECK (sender_type IN ('user', 'assistant', 'system'))
 );
 
--- =========================
--- APPLICATION STATUS HISTORY
--- =========================
-CREATE TABLE Application_status_history (
-    history_id SERIAL PRIMARY KEY,
-    app_id INT,
-    old_status VARCHAR(50),
-    new_status VARCHAR(50),
-    change_date DATE,
-    FOREIGN KEY (app_id) REFERENCES Application(app_id) ON DELETE CASCADE
+CREATE TABLE required_documents (
+    document_id           INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    application_id        INTEGER NOT NULL,
+    document_name         VARCHAR(150) NOT NULL,
+    description           TEXT,
+    required_flag         BOOLEAN NOT NULL DEFAULT TRUE,
+    CONSTRAINT fk_required_documents_application
+        FOREIGN KEY (application_id)
+        REFERENCES applications(application_id)
+        ON DELETE CASCADE
 );
 
--- =========================
--- CHAT SESSION
--- =========================
-CREATE TABLE Chat_session (
-    session_id SERIAL PRIMARY KEY,
-    client_id INT,
-    start_time TIME,
-    end_time TIME,
-    summary_generated BOOLEAN,
-    is_starred BOOLEAN NOT NULL DEFAULT false,
-    FOREIGN KEY (client_id) REFERENCES client(client_id) ON DELETE CASCADE
-);
+CREATE INDEX idx_user_applications_user_id
+    ON user_applications (user_id);
 
--- =========================
--- CHAT MESSAGE
--- =========================
-CREATE TABLE Chat_message (
-    message_id SERIAL PRIMARY KEY,
-    session_id INT,
-    sender_type VARCHAR(50),
-    message_text TEXT,
-    timestamp TIME,
-    FOREIGN KEY (session_id) REFERENCES Chat_session(session_id) ON DELETE CASCADE
-);
+CREATE INDEX idx_user_applications_application_id
+    ON user_applications (application_id);
 
--- =========================
--- USER NEED
--- =========================
-CREATE TABLE client_need (
-    need_id SERIAL PRIMARY KEY,
-    client_id INT,
-    session_id INT,
-    need_type VARCHAR(100),
-    urgency_level VARCHAR(50),
-    date_identified DATE,
-    FOREIGN KEY (client_id) REFERENCES client(client_id) ON DELETE CASCADE,
-    FOREIGN KEY (session_id) REFERENCES Chat_session(session_id) ON DELETE SET NULL
-);
+CREATE INDEX idx_chat_threads_user_id
+    ON chat_threads (user_id);
 
--- =========================
--- RECOMMENDATION
--- =========================
-CREATE TABLE Recommendation (
-    recommendation_id SERIAL PRIMARY KEY,
-    client_id INT,
-    program_id INT,
-    need_id INT,
-    session_id INT,
-    confidence_score DECIMAL(5,2),
-    date_recommended DATE,
-    FOREIGN KEY (client_id) REFERENCES client(client_id) ON DELETE CASCADE,
-    FOREIGN KEY (program_id) REFERENCES Aid_program(program_id),
-    FOREIGN KEY (need_id) REFERENCES client_need(need_id),
-    FOREIGN KEY (session_id) REFERENCES Chat_session(session_id)
-);
+CREATE INDEX idx_chat_messages_thread_id
+    ON chat_messages (thread_id);
 
--- =========================
--- NOTIFICATION
--- =========================
-CREATE TABLE Notification (
-    notification_id SERIAL PRIMARY KEY,
-    client_id INT,
-    app_id INT,
-    message TEXT,
-    notification_type VARCHAR(50),
-    date_sent DATE,
-    read_status VARCHAR(50),
-    FOREIGN KEY (client_id) REFERENCES client(client_id) ON DELETE CASCADE,
-    FOREIGN KEY (app_id) REFERENCES Application(app_id) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_application_client ON Application(client_id);
-CREATE INDEX idx_application_program ON Application(program_id);
-CREATE INDEX idx_chat_session_client ON Chat_session(client_id);
-CREATE INDEX idx_recommendation_client ON Recommendation(client_id);
-CREATE INDEX idx_recommendation_program ON Recommendation(program_id);
+CREATE INDEX idx_required_documents_application_id
+    ON required_documents (application_id);
