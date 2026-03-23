@@ -38,10 +38,16 @@ const TopNavBar = () => {
 
       <div className="flex items-center space-x-4">
         <Link
+          to="/signup"
+          className="hidden md:inline-flex items-center px-5 py-2 rounded-full border border-primary/20 text-primary font-headline font-bold text-sm hover:bg-primary/5 transition-all"
+        >
+          Sign Up
+        </Link>
+        <Link
           to="/login"
           className="hidden md:inline-flex items-center px-5 py-2 rounded-full bg-primary text-[var(--on-primary)] font-headline font-bold text-sm hover:bg-primary-dim transition-all"
         >
-          Sign In
+          Login
         </Link>
 
         <button
@@ -75,7 +81,14 @@ const TopNavBar = () => {
               onClick={() => setMobileOpen(false)}
               className="px-4 py-3 rounded-xl font-headline font-bold text-primary hover:bg-blue-50 transition-colors"
             >
-              Sign In
+              Login
+            </Link>
+            <Link
+              to="/signup"
+              onClick={() => setMobileOpen(false)}
+              className="px-4 py-3 rounded-xl font-headline font-bold text-primary hover:bg-blue-50 transition-colors"
+            >
+              Sign Up
             </Link>
           </div>
         </div>

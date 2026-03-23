@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import crypto from "node:crypto";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import pool from "./db.js";
 
@@ -21,6 +22,44 @@ const geminiModel = genAI.getGenerativeModel({
 app.use(cors());
 app.use(express.json());
 
+const PASSWORD_KEYLEN = 64;
+const PASSWORD_DIGEST = "sha512";
+const PASSWORD_ITERATIONS = 120000;
+
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto
+    .pbkdf2Sync(password, salt, PASSWORD_ITERATIONS, PASSWORD_KEYLEN, PASSWORD_DIGEST)
+    .toString("hex");
+
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password, storedHash) {
+  const [salt, expectedHash] = String(storedHash ?? "").split(":");
+
+  if (!String(storedHash ?? "").includes(":")) {
+    return password === String(storedHash ?? "");
+  }
+
+  if (!salt || !expectedHash) {
+    return false;
+  }
+
+  const actualHash = crypto
+    .pbkdf2Sync(password, salt, PASSWORD_ITERATIONS, PASSWORD_KEYLEN, PASSWORD_DIGEST)
+    .toString("hex");
+
+  const expectedBuffer = Buffer.from(expectedHash, "hex");
+  const actualBuffer = Buffer.from(actualHash, "hex");
+
+  if (expectedBuffer.length !== actualBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(expectedBuffer, actualBuffer);
+}
+
 app.get("/", (req, res) => {
   res.json({ message: "Gov Aid Assistance API", status: "ok" });
 });
@@ -31,6 +70,112 @@ app.get("/health", async (req, res) => {
     res.json({ status: "healthy", database: "connected" });
   } catch (err) {
     res.status(503).json({ status: "unhealthy", database: "disconnected", error: err.message });
+  }
+});
+
+app.post("/api/auth/signup", async (req, res) => {
+  const { firstName = "", lastName = "", email, password } = req.body ?? {};
+  const normalizedEmail = String(email ?? "").trim().toLowerCase();
+  const normalizedPassword = String(password ?? "");
+
+  if (!normalizedEmail || !normalizedPassword) {
+    return res.status(400).json({ error: "Email and password are required." });
+  }
+
+  if (normalizedPassword.length < 8) {
+    return res.status(400).json({ error: "Password must be at least 8 characters." });
+  }
+
+  try {
+    const existingUser = await pool.query("SELECT client_id FROM client WHERE email = $1", [normalizedEmail]);
+
+    if (existingUser.rowCount > 0) {
+      return res.status(409).json({ error: "An account with this email already exists." });
+    }
+
+    const passwordHash = hashPassword(normalizedPassword);
+    const { rows } = await pool.query(
+      `INSERT INTO client (firstname, lastname, email, password, account_creation_date)
+       VALUES ($1, $2, $3, $4, CURRENT_DATE)
+       RETURNING client_id, firstname, lastname, email`,
+      [String(firstName).trim(), String(lastName).trim(), normalizedEmail, passwordHash]
+    );
+
+    return res.status(201).json({
+      ok: true,
+      user: {
+        clientId: rows[0].client_id,
+        firstName: rows[0].firstname,
+        lastName: rows[0].lastname,
+        email: rows[0].email,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to create account.", details: err.message });
+  }
+});
+
+app.post("/api/auth/login", async (req, res) => {
+  const { email, password } = req.body ?? {};
+  const normalizedEmail = String(email ?? "").trim().toLowerCase();
+  const normalizedPassword = String(password ?? "");
+
+  if (!normalizedEmail || !normalizedPassword) {
+    return res.status(400).json({ error: "Email and password are required." });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      "SELECT client_id, firstname, lastname, email, password FROM client WHERE email = $1",
+      [normalizedEmail]
+    );
+
+    if (rows.length === 0 || !verifyPassword(normalizedPassword, rows[0].password)) {
+      return res.status(401).json({ error: "Invalid email or password." });
+    }
+
+    return res.json({
+      ok: true,
+      user: {
+        clientId: rows[0].client_id,
+        firstName: rows[0].firstname,
+        lastName: rows[0].lastname,
+        email: rows[0].email,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to log in.", details: err.message });
+  }
+});
+
+app.get("/api/auth/me", async (req, res) => {
+  const clientId = Number.parseInt(req.query.clientId, 10);
+
+  if (Number.isNaN(clientId)) {
+    return res.status(400).json({ error: "Invalid client ID." });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      "SELECT client_id, firstname, lastname, email FROM client WHERE client_id = $1",
+      [clientId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    return res.json({
+      ok: true,
+      user: {
+        clientId: rows[0].client_id,
+        firstName: rows[0].firstname,
+        lastName: rows[0].lastname,
+        email: rows[0].email,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to load user.", details: err.message });
   }
 });
 

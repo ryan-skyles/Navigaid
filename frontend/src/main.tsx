@@ -23,6 +23,7 @@ createRoot(document.getElementById("root")!).render(
           <Route element={<PublicLayout />}>
             <Route index element={<Index />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Login />} />
             <Route path="*" element={<NotFound />} />
           </Route>
 

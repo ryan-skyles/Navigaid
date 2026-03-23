@@ -11,6 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { getAuthClientId } from "@/utils/auth";
 
 interface Message {
   id: string;
@@ -37,7 +38,6 @@ interface ApiSession {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3001";
-const DEMO_CLIENT_ID = 1;
 
 const mapApiMessage = (message: ApiMessage): Message => ({
   id: String(message.message_id),
@@ -67,6 +67,7 @@ const ResultsPage = () => {
   const [sessionPendingDelete, setSessionPendingDelete] = useState<ApiSession | null>(null);
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
   const [typingDisplayLength, setTypingDisplayLength] = useState(0);
+  const clientId = getAuthClientId();
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -80,7 +81,7 @@ const ResultsPage = () => {
     setIsLoadingSessions(true);
     setError("");
     try {
-      const response = await fetch(`${API_BASE_URL}/api/clients/${DEMO_CLIENT_ID}/sessions`);
+      const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/sessions`);
       if (!response.ok) throw new Error("Unable to load conversations.");
       const data = (await response.json()) as ApiSession[];
       setSessions(data);
@@ -110,7 +111,7 @@ const ResultsPage = () => {
   }, []);
 
   const createSession = async () => {
-    const response = await fetch(`${API_BASE_URL}/api/clients/${DEMO_CLIENT_ID}/sessions`, {
+    const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/sessions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     });
@@ -119,7 +120,7 @@ const ResultsPage = () => {
   };
 
   const updateSessionStar = async (sessionId: number, isStarred: boolean) => {
-    const response = await fetch(`${API_BASE_URL}/api/clients/${DEMO_CLIENT_ID}/sessions/${sessionId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/sessions/${sessionId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isStarred }),
@@ -129,7 +130,7 @@ const ResultsPage = () => {
   };
 
   const deleteSession = async (sessionId: number) => {
-    const response = await fetch(`${API_BASE_URL}/api/clients/${DEMO_CLIENT_ID}/sessions/${sessionId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/sessions/${sessionId}`, {
       method: "DELETE",
     });
     if (!response.ok) throw new Error("Unable to delete conversation.");

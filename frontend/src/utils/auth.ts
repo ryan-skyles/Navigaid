@@ -1,16 +1,46 @@
-export async function requireAuth() {
-  const res = await fetch("http://localhost:3000/api/auth/me", { credentials: "include" });
-  if (!res.ok) {
-    window.location.href = "/login";
+export interface AuthUser {
+  clientId: number;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+}
+
+const AUTH_STORAGE_KEY = "navigaid_user";
+
+export function getStoredUser(): AuthUser | null {
+  if (typeof window === "undefined") return null;
+
+  const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as AuthUser;
+    if (!parsed || typeof parsed.clientId !== "number") {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
   }
 }
 
-// call this on any page that should require authentication: 
+export function setStoredUser(user: AuthUser) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+}
 
-// import { useEffect } from "react";
-// import { requireAuth } from "./utils/auth";
+export function clearStoredUser() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(AUTH_STORAGE_KEY);
+}
 
-// export default function Dashboard() {
-//   useEffect(() => { requireAuth(); }, []);
-//   // ... your protected UI ...
-// }
+export function getAuthClientId() {
+  // Keep seeded demo behavior for users who have not logged in yet.
+  return getStoredUser()?.clientId ?? 1;
+}
+
+export function requireAuth() {
+  if (!getStoredUser()) {
+    window.location.href = "/login";
+  }
+}
