@@ -4,6 +4,7 @@ import { useState } from "react";
 import logo from "@/assets/Logo.png";
 
 const navLinks = [
+  { to: "/", label: "Home" },
   { to: "/situations", label: "Programs" },
   { to: "/results", label: "Resources" },
   { to: "/profile", label: "Profile" },
