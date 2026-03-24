@@ -470,6 +470,83 @@ app.get("/api/clients/:clientId/profile", async (req, res) => {
   }
 });
 
+app.post("/api/profile", async (req, res) => {
+  const {
+    first_name,
+    last_name,
+    email,
+    phone,
+    city,
+    state,
+    zip_code,
+    date_of_birth,
+    household_size,
+    income,
+    employment_status,
+    housing_status,
+    disability_status,
+    veteran_status,
+    preferred_language,
+  } = req.body ?? {};
+
+  const normalizedEmail = String(email ?? "").trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return res.status(400).json({ error: "Email is required." });
+  }
+  if (!first_name || !last_name) {
+    return res.status(400).json({ error: "First and last name are required." });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO users (
+        first_name, last_name, email, phone, city, state, zip_code,
+        date_of_birth, household_size, income, employment_status,
+        housing_status, disability_status, veteran_status, preferred_language
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+      ON CONFLICT (email) DO UPDATE SET
+        first_name         = EXCLUDED.first_name,
+        last_name          = EXCLUDED.last_name,
+        phone              = EXCLUDED.phone,
+        city               = EXCLUDED.city,
+        state              = EXCLUDED.state,
+        zip_code           = EXCLUDED.zip_code,
+        date_of_birth      = EXCLUDED.date_of_birth,
+        household_size     = EXCLUDED.household_size,
+        income             = EXCLUDED.income,
+        employment_status  = EXCLUDED.employment_status,
+        housing_status     = EXCLUDED.housing_status,
+        disability_status  = EXCLUDED.disability_status,
+        veteran_status     = EXCLUDED.veteran_status,
+        preferred_language = EXCLUDED.preferred_language,
+        updated_at         = CURRENT_TIMESTAMP
+      RETURNING user_id, first_name, last_name, email`,
+      [
+        String(first_name).trim(),
+        String(last_name).trim(),
+        normalizedEmail,
+        phone || null,
+        city || null,
+        state || null,
+        zip_code || null,
+        date_of_birth || null,
+        household_size ? Number(household_size) : null,
+        income ? Number(income) : null,
+        employment_status || null,
+        housing_status || null,
+        disability_status || null,
+        veteran_status || null,
+        preferred_language || "English",
+      ]
+    );
+
+    return res.status(201).json({ ok: true, user: rows[0] });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to save profile.", details: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });

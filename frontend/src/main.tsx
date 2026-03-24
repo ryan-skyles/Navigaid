@@ -31,7 +31,7 @@ createRoot(document.getElementById("root")!).render(
           <Route element={<DashboardLayout />}>
             <Route path="/situations" element={<SituationsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/results" element={<ResultsPage />} />
+<Route path="/results" element={<ResultsPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
