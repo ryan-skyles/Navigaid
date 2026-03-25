@@ -27,7 +27,7 @@ CREATE TABLE users (
     state                VARCHAR(50),
     zip_code             VARCHAR(15),
     household_size       INTEGER,
-    income               INTEGER,
+    income_range         INTEGER,
     employment_status    VARCHAR(100),
     housing_status       VARCHAR(100),
     disability_status    VARCHAR(100),

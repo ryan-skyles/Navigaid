@@ -86,32 +86,52 @@ app.post("/api/auth/signup", async (req, res) => {
     return res.status(400).json({ error: "Password must be at least 8 characters." });
   }
 
+  const first = String(firstName).trim();
+  const last = String(lastName).trim();
+  if (!first || !last) {
+    return res.status(400).json({ error: "First and last name are required." });
+  }
+
+  const existingUser = await pool.query("SELECT user_id FROM users WHERE email = $1", [normalizedEmail]);
+  if (existingUser.rowCount > 0) {
+    return res.status(409).json({ error: "An account with this email already exists." });
+  }
+
+  const passwordHash = hashPassword(normalizedPassword);
+  const dbClient = await pool.connect();
   try {
-    const existingUser = await pool.query("SELECT client_id FROM client WHERE email = $1", [normalizedEmail]);
-
-    if (existingUser.rowCount > 0) {
-      return res.status(409).json({ error: "An account with this email already exists." });
-    }
-
-    const passwordHash = hashPassword(normalizedPassword);
-    const { rows } = await pool.query(
-      `INSERT INTO client (firstname, lastname, email, password, account_creation_date)
-       VALUES ($1, $2, $3, $4, CURRENT_DATE)
-       RETURNING client_id, firstname, lastname, email`,
-      [String(firstName).trim(), String(lastName).trim(), normalizedEmail, passwordHash]
+    await dbClient.query("BEGIN");
+    const { rows } = await dbClient.query(
+      `INSERT INTO users (first_name, last_name, email)
+       VALUES ($1, $2, $3)
+       RETURNING user_id, first_name, last_name, email`,
+      [first, last, normalizedEmail]
     );
+    const userId = rows[0].user_id;
+    await dbClient.query(
+      `INSERT INTO login (user_id, username, password_hash, is_active)
+       VALUES ($1, $2, $3, TRUE)`,
+      [userId, normalizedEmail, passwordHash]
+    );
+    await dbClient.query("COMMIT");
 
     return res.status(201).json({
       ok: true,
       user: {
-        clientId: rows[0].client_id,
-        firstName: rows[0].firstname,
-        lastName: rows[0].lastname,
+        clientId: userId,
+        firstName: rows[0].first_name,
+        lastName: rows[0].last_name,
         email: rows[0].email,
       },
     });
   } catch (err) {
+    await dbClient.query("ROLLBACK").catch(() => {});
+    if (err.code === "23505") {
+      return res.status(409).json({ error: "An account with this email already exists." });
+    }
     return res.status(500).json({ error: "Failed to create account.", details: err.message });
+  } finally {
+    dbClient.release();
   }
 });
 
@@ -126,20 +146,26 @@ app.post("/api/auth/login", async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      "SELECT client_id, firstname, lastname, email, password FROM client WHERE email = $1",
+      `SELECT u.user_id, u.first_name, u.last_name, u.email, l.password_hash
+       FROM users u
+       INNER JOIN login l ON l.user_id = u.user_id
+       WHERE u.email = $1 AND l.is_active = TRUE`,
       [normalizedEmail]
     );
 
-    if (rows.length === 0 || !verifyPassword(normalizedPassword, rows[0].password)) {
+    if (rows.length === 0 || !verifyPassword(normalizedPassword, rows[0].password_hash)) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
+
+    const userId = rows[0].user_id;
+    await pool.query(`UPDATE login SET last_login_at = CURRENT_TIMESTAMP WHERE user_id = $1`, [userId]);
 
     return res.json({
       ok: true,
       user: {
-        clientId: rows[0].client_id,
-        firstName: rows[0].firstname,
-        lastName: rows[0].lastname,
+        clientId: userId,
+        firstName: rows[0].first_name,
+        lastName: rows[0].last_name,
         email: rows[0].email,
       },
     });
@@ -157,7 +183,7 @@ app.get("/api/auth/me", async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      "SELECT client_id, firstname, lastname, email FROM client WHERE client_id = $1",
+      "SELECT user_id, first_name, last_name, email FROM users WHERE user_id = $1",
       [clientId]
     );
 
@@ -168,9 +194,9 @@ app.get("/api/auth/me", async (req, res) => {
     return res.json({
       ok: true,
       user: {
-        clientId: rows[0].client_id,
-        firstName: rows[0].firstname,
-        lastName: rows[0].lastname,
+        clientId: rows[0].user_id,
+        firstName: rows[0].first_name,
+        lastName: rows[0].last_name,
         email: rows[0].email,
       },
     });
@@ -230,9 +256,9 @@ app.post("/api/clients/:clientId/sessions", async (req, res) => {
   }
 
   try {
-    const clientCheck = await pool.query("SELECT client_id FROM client WHERE client_id = $1", [clientId]);
+    const userCheck = await pool.query("SELECT user_id FROM users WHERE user_id = $1", [clientId]);
 
-    if (clientCheck.rowCount === 0) {
+    if (userCheck.rowCount === 0) {
       return res.status(404).json({ error: "Client not found." });
     }
 
@@ -428,15 +454,15 @@ app.get("/api/clients/:clientId/profile", async (req, res) => {
 
   try {
     const clientResult = await pool.query(
-  `SELECT
-     client_id,
-     firstName AS "firstName",
-     lastName AS "lastName",
-     email
-   FROM client
-   WHERE client_id = $1`,
-  [clientId]
-  );
+      `SELECT
+         user_id AS client_id,
+         first_name AS "firstName",
+         last_name AS "lastName",
+         email
+       FROM users
+       WHERE user_id = $1`,
+      [clientId]
+    );
 
     if (clientResult.rowCount === 0) {
       return res.status(404).json({ error: "Client not found." });
@@ -444,17 +470,16 @@ app.get("/api/clients/:clientId/profile", async (req, res) => {
 
     const applicationsResult = await pool.query(
       `SELECT
-        a.app_id,
-        a.date_submitted,
-        a.status,
-        a.last_updated,
-        ap.program_name,
-        ap.description_plain_language
-      FROM application a
-      JOIN aid_program ap
-        ON a.program_id = ap.program_id
-      WHERE a.client_id = $1
-      ORDER BY a.last_updated DESC NULLS LAST, a.app_id DESC`,
+        ua.user_application_id AS app_id,
+        ua.date_started AS date_submitted,
+        ua.status,
+        ua.last_updated,
+        a.application_name AS program_name,
+        a.description AS description_plain_language
+      FROM user_applications ua
+      JOIN applications a ON a.application_id = ua.application_id
+      WHERE ua.user_id = $1
+      ORDER BY ua.last_updated DESC NULLS LAST, ua.user_application_id DESC`,
       [clientId]
     );
 
