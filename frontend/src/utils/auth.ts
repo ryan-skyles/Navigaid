@@ -35,8 +35,7 @@ export function clearStoredUser() {
 }
 
 export function getAuthClientId() {
-  // Keep seeded demo behavior for users who have not logged in yet.
-  return getStoredUser()?.clientId ?? 1;
+  return getStoredUser()?.clientId ?? null;
 }
 
 export function requireAuth() {

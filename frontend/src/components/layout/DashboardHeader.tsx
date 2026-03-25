@@ -1,5 +1,3 @@
-import { Link } from "react-router-dom";
-
 interface DashboardHeaderProps {
   onMenuToggle: () => void;
 }
@@ -16,15 +14,6 @@ const DashboardHeader = ({ onMenuToggle }: DashboardHeaderProps) => {
           <span className="material-symbols-outlined">menu</span>
         </button>
         <span className="text-2xl font-extrabold tracking-tighter text-blue-800">Navig<span className="text-primary">Aid</span></span>
-      </div>
-
-      <div className="flex items-center gap-4">
-        <Link
-          to="/login"
-          className="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center border-2 border-primary/10 text-primary font-bold text-sm hover:bg-primary-container transition-colors"
-        >
-          U
-        </Link>
       </div>
     </header>
   );

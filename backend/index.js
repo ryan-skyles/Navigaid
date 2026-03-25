@@ -458,7 +458,13 @@ app.get("/api/clients/:clientId/profile", async (req, res) => {
          user_id AS client_id,
          first_name AS "firstName",
          last_name AS "lastName",
-         email
+         email,
+         household_size AS "householdSize",
+         income,
+         employment_status AS "employmentStatus",
+         housing_status AS "housingStatus",
+         disability_status AS "disabilityStatus",
+         veteran_status AS "veteranStatus"
        FROM users
        WHERE user_id = $1`,
       [clientId]

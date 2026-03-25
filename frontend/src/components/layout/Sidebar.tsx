@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import logo from "@/assets/Logo.png";
+import { getStoredUser } from "@/utils/auth";
 
 const navItems = [
   {
@@ -13,11 +14,6 @@ const navItems = [
     label: "Programs",
     icon: "grid_view",
   },
-  {
-    to: "/profile",
-    label: "Profile",
-    icon: "person",
-  },
 ] as const;
 
 interface SidebarProps {
@@ -27,6 +23,7 @@ interface SidebarProps {
 
 const Sidebar = ({ open, onClose }: SidebarProps) => {
   const location = useLocation();
+  const user = getStoredUser();
 
   return (
     <>
@@ -92,20 +89,12 @@ const Sidebar = ({ open, onClose }: SidebarProps) => {
         <div className="mt-auto px-4 space-y-4">
           <div className="space-y-1">
             <Link
-              to="/"
-              onClick={onClose}
-              className="text-slate-600 px-4 py-2 hover:bg-slate-100 rounded-xl flex items-center gap-3 text-sm transition-transform duration-200 hover:translate-x-1"
-            >
-              <span className="material-symbols-outlined text-base">home</span>
-              Home
-            </Link>
-            <Link
-              to="/login"
+              to={user ? "/profile" : "/login"}
               onClick={onClose}
               className="text-slate-600 px-4 py-2 hover:bg-slate-100 rounded-xl flex items-center gap-3 text-sm transition-transform duration-200 hover:translate-x-1"
             >
               <span className="material-symbols-outlined text-base">person</span>
-              Account
+              Profile
             </Link>
           </div>
         </div>

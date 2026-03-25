@@ -49,6 +49,24 @@ type Application = {
   description_plain_language: string | null;
 };
 
+type ClientProfile = {
+  client_id: number;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+  householdSize: number | null;
+  income: number | null;
+  employmentStatus: string | null;
+  housingStatus: string | null;
+  disabilityStatus: string | null;
+  veteranStatus: string | null;
+};
+
+type ProfileResponse = {
+  client: ClientProfile;
+  applications: Application[];
+};
+
 const statusStyles: Record<string, string> = {
   approved: "bg-success text-success-foreground",
   pending: "bg-warning text-warning-foreground",
@@ -88,13 +106,26 @@ const ProfilePage = () => {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    if (!clientId) return;
+    if (!clientId) {
+      setAppsLoading(false);
+      setAppsError("Please log in to view and save your profile.");
+      return;
+    }
     const fetchApplications = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/api/clients/${clientId}/profile`);
         if (!res.ok) throw new Error("Failed to load profile data.");
-        const data = await res.json();
+        const data = (await res.json()) as ProfileResponse;
         setApplications(data.applications ?? []);
+        const profile = data.client;
+        if (profile) {
+          setHouseholdSize(profile.householdSize != null ? String(profile.householdSize) : "");
+          setIncome(profile.income != null ? String(profile.income) : "");
+          setEmploymentStatus(profile.employmentStatus ?? "");
+          setHousingStatus(profile.housingStatus ?? "");
+          setDisabilityStatus(profile.disabilityStatus ?? "");
+          setVeteranStatus(profile.veteranStatus ?? "");
+        }
       } catch (err) {
         setAppsError(err instanceof Error ? err.message : "Something went wrong.");
       } finally {
@@ -111,6 +142,11 @@ const ProfilePage = () => {
     setSaved(false);
 
     try {
+      if (!user?.email || !user?.firstName || !user?.lastName) {
+        setSaveError("Please log in before saving your eligibility profile.");
+        return;
+      }
+
       const res = await fetch(`${API_BASE_URL}/api/profile`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

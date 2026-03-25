@@ -68,6 +68,7 @@ const ResultsPage = () => {
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
   const [typingDisplayLength, setTypingDisplayLength] = useState(0);
   const clientId = getAuthClientId();
+  const isAuthenticated = clientId !== null;
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -78,6 +79,14 @@ const ResultsPage = () => {
   const unstarredSessions = sessions.filter((s) => !s.is_starred);
 
   const loadSessions = useCallback(async () => {
+    if (!isAuthenticated || clientId === null) {
+      setSessions([]);
+      setSelectedSessionId(null);
+      setMessages([]);
+      setIsLoadingSessions(false);
+      return;
+    }
+
     setIsLoadingSessions(true);
     setError("");
     try {
@@ -90,7 +99,7 @@ const ResultsPage = () => {
     } finally {
       setIsLoadingSessions(false);
     }
-  }, []);
+  }, [clientId, isAuthenticated]);
 
   const loadMessages = useCallback(async (sessionId: number): Promise<Message[]> => {
     setIsLoadingMessages(true);
@@ -111,6 +120,9 @@ const ResultsPage = () => {
   }, []);
 
   const createSession = async () => {
+    if (!isAuthenticated || clientId === null) {
+      throw new Error("Please log in to start a saved conversation.");
+    }
     const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/sessions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -120,6 +132,9 @@ const ResultsPage = () => {
   };
 
   const updateSessionStar = async (sessionId: number, isStarred: boolean) => {
+    if (!isAuthenticated || clientId === null) {
+      throw new Error("Please log in to manage conversations.");
+    }
     const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/sessions/${sessionId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -130,6 +145,9 @@ const ResultsPage = () => {
   };
 
   const deleteSession = async (sessionId: number) => {
+    if (!isAuthenticated || clientId === null) {
+      throw new Error("Please log in to manage conversations.");
+    }
     const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/sessions/${sessionId}`, {
       method: "DELETE",
     });
@@ -170,6 +188,10 @@ const ResultsPage = () => {
   useEffect(() => {
     const bootstrapInitialMessage = async () => {
       if (!initialMessage || hasHandledInitialMessage.current) return;
+      if (!isAuthenticated) {
+        setIsBootstrappingThread(false);
+        return;
+      }
       hasHandledInitialMessage.current = true;
       setIsBootstrappingThread(true);
       setError("");
@@ -194,10 +216,15 @@ const ResultsPage = () => {
       }
     };
     bootstrapInitialMessage();
-  }, [initialMessage, loadMessages, loadSessions, location.pathname, location.search, navigate]);
+  }, [initialMessage, isAuthenticated, loadMessages, loadSessions, location.pathname, location.search, navigate]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
+    if (!isAuthenticated) {
+      navigate("/login");
+      return;
+    }
+
     setIsSending(true);
     setError("");
     try {
@@ -277,6 +304,32 @@ const ResultsPage = () => {
 
   // ─── Session List View ─────────────────────────────────────────────
   if (selectedSessionId === null && !isBootstrappingThread) {
+    if (!isAuthenticated) {
+      return (
+        <div className="space-y-6">
+          <div className="mb-4">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold font-headline tracking-tight text-on-surface mb-4">
+              Conversation History
+            </h2>
+            <p className="text-on-surface-variant text-lg max-w-2xl font-body">
+              Sign in to view and save your conversation history.
+            </p>
+          </div>
+          <div className="bg-[var(--surface-container-lowest)] rounded-2xl p-8 border border-[var(--outline-variant)]/20">
+            <p className="text-on-surface-variant mb-5">
+              To keep conversations private and tied to your account, history is available after login.
+            </p>
+            <button
+              onClick={() => navigate("/login")}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-primary text-[var(--on-primary)] font-bold hover:bg-primary-dim transition-all active:scale-95"
+            >
+              Go to Login
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     const visibleSessions = filter === "starred"
       ? starredSessions
       : [...starredSessions, ...unstarredSessions];
