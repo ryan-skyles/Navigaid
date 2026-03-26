@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { setStoredUser } from "@/utils/auth";
+import { getGuestConversations, clearGuestConversations } from "@/utils/guestChat";
 
 type LoginResponse =
   | {
@@ -61,8 +62,40 @@ export default function Login() {
         return;
       }
 
-      if ((data as any)?.user) {
-        setStoredUser((data as any).user);
+      const newUser = (data as any)?.user;
+      if (newUser) {
+        setStoredUser(newUser);
+      }
+
+      // On signup, migrate any guest conversations to the new account
+      if (isSignupMode && newUser?.clientId) {
+        const guestConvs = getGuestConversations();
+        if (guestConvs.length > 0) {
+          for (const conv of guestConvs) {
+            if (conv.messages.length === 0) continue;
+            try {
+              const sessionRes = await fetch(`${API_BASE_URL}/api/clients/${newUser.clientId}/sessions`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+              });
+              if (!sessionRes.ok) continue;
+              const session = await sessionRes.json();
+              await fetch(`${API_BASE_URL}/api/sessions/${session.session_id}/import`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  messages: conv.messages.map((m) => ({
+                    sender_type: m.role,
+                    message_text: m.content,
+                  })),
+                }),
+              });
+            } catch {
+              // Migration errors are non-fatal — continue
+            }
+          }
+          clearGuestConversations();
+        }
       }
 
       navigate("/results");

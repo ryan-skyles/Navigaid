@@ -445,6 +445,70 @@ app.post("/api/sessions/:sessionId/messages", async (req, res) => {
   }
 });
 
+// Guest AI chat — no DB writes, just returns AI response
+app.post("/api/chat/guest", async (req, res) => {
+  const { messageText, conversationHistory = [] } = req.body;
+
+  if (!messageText || typeof messageText !== "string" || messageText.trim().length === 0) {
+    return res.status(400).json({ error: "messageText is required." });
+  }
+
+  try {
+    const chatHistory = conversationHistory.map((msg) => ({
+      role: msg.role === "user" ? "user" : "model",
+      parts: [{ text: msg.content }],
+    }));
+
+    const chat = geminiModel.startChat({ history: chatHistory });
+    const result = await chat.sendMessage(messageText.trim());
+    const assistantText = result.response.text();
+
+    return res.json({ assistantMessage: assistantText });
+  } catch (err) {
+    console.error("Guest chat error:", err);
+    return res.status(500).json({ error: "Failed to get AI response." });
+  }
+});
+
+// Batch import messages into a session (used for guest→account migration)
+app.post("/api/sessions/:sessionId/import", async (req, res) => {
+  const sessionId = Number.parseInt(req.params.sessionId, 10);
+  const { messages } = req.body;
+
+  if (Number.isNaN(sessionId)) {
+    return res.status(400).json({ error: "Invalid session ID." });
+  }
+
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: "messages array is required." });
+  }
+
+  try {
+    const sessionCheck = await pool.query(
+      "SELECT session_id FROM chat_session WHERE session_id = $1",
+      [sessionId]
+    );
+
+    if (sessionCheck.rowCount === 0) {
+      return res.status(404).json({ error: "Session not found." });
+    }
+
+    for (const msg of messages) {
+      if (!msg.sender_type || !msg.message_text) continue;
+      await pool.query(
+        `INSERT INTO chat_message (session_id, sender_type, message_text, "timestamp")
+         VALUES ($1, $2, $3, CURRENT_TIME)`,
+        [sessionId, msg.sender_type, String(msg.message_text)]
+      );
+    }
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Import error:", err);
+    return res.status(500).json({ error: "Failed to import messages." });
+  }
+});
+
 app.get("/api/clients/:clientId/profile", async (req, res) => {
   const clientId = Number.parseInt(req.params.clientId, 10);
 

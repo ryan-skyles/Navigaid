@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -85,9 +86,35 @@ const formatDate = (dateString: string | null) => {
 const inputClass =
   "w-full h-11 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] px-4 text-on-surface text-sm font-body focus:outline-none focus:ring-2 focus:ring-primary-container/40 transition-all";
 
+type FormValues = {
+  householdSize: string;
+  income: string;
+  employmentStatus: string;
+  housingStatus: string;
+  disabilityStatus: string;
+  veteranStatus: string;
+};
+
+const EMPTY_FORM: FormValues = {
+  householdSize: "",
+  income: "",
+  employmentStatus: "",
+  housingStatus: "",
+  disabilityStatus: "",
+  veteranStatus: "",
+};
+
 const ProfilePage = () => {
   const user = getStoredUser();
   const clientId = user?.clientId;
+  const navigate = useNavigate();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!clientId) {
+      navigate("/login", { replace: true });
+    }
+  }, [clientId, navigate]);
 
   // Applications
   const [applications, setApplications] = useState<Application[]>([]);
@@ -95,23 +122,23 @@ const ProfilePage = () => {
   const [appsError, setAppsError] = useState("");
 
   // Eligibility form
-  const [householdSize, setHouseholdSize] = useState("");
-  const [income, setIncome] = useState("");
-  const [employmentStatus, setEmploymentStatus] = useState("");
-  const [housingStatus, setHousingStatus] = useState("");
-  const [disabilityStatus, setDisabilityStatus] = useState("");
-  const [veteranStatus, setVeteranStatus] = useState("");
+  const [form, setForm] = useState<FormValues>(EMPTY_FORM);
+  const initialValues = useRef<FormValues>(EMPTY_FORM);
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const isDirty =
+    form.householdSize !== initialValues.current.householdSize ||
+    form.income !== initialValues.current.income ||
+    form.employmentStatus !== initialValues.current.employmentStatus ||
+    form.housingStatus !== initialValues.current.housingStatus ||
+    form.disabilityStatus !== initialValues.current.disabilityStatus ||
+    form.veteranStatus !== initialValues.current.veteranStatus;
+
   useEffect(() => {
-    if (!clientId) {
-      setAppsLoading(false);
-      setAppsError("Please log in to view and save your profile.");
-      return;
-    }
-    const fetchApplications = async () => {
+    if (!clientId) return;
+    const fetchProfile = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/api/clients/${clientId}/profile`);
         if (!res.ok) throw new Error("Failed to load profile data.");
@@ -119,12 +146,16 @@ const ProfilePage = () => {
         setApplications(data.applications ?? []);
         const profile = data.client;
         if (profile) {
-          setHouseholdSize(profile.householdSize != null ? String(profile.householdSize) : "");
-          setIncome(profile.income != null ? String(profile.income) : "");
-          setEmploymentStatus(profile.employmentStatus ?? "");
-          setHousingStatus(profile.housingStatus ?? "");
-          setDisabilityStatus(profile.disabilityStatus ?? "");
-          setVeteranStatus(profile.veteranStatus ?? "");
+          const loaded: FormValues = {
+            householdSize: profile.householdSize != null ? String(profile.householdSize) : "",
+            income: profile.income != null ? String(profile.income) : "",
+            employmentStatus: profile.employmentStatus ?? "",
+            housingStatus: profile.housingStatus ?? "",
+            disabilityStatus: profile.disabilityStatus ?? "",
+            veteranStatus: profile.veteranStatus ?? "",
+          };
+          setForm(loaded);
+          initialValues.current = loaded;
         }
       } catch (err) {
         setAppsError(err instanceof Error ? err.message : "Something went wrong.");
@@ -132,7 +163,7 @@ const ProfilePage = () => {
         setAppsLoading(false);
       }
     };
-    fetchApplications();
+    fetchProfile();
   }, [clientId]);
 
   async function handleSave(e: React.FormEvent) {
@@ -142,7 +173,7 @@ const ProfilePage = () => {
     setSaved(false);
 
     try {
-      if (!user?.email || !user?.firstName || !user?.lastName) {
+      if (!user?.email) {
         setSaveError("Please log in before saving your eligibility profile.");
         return;
       }
@@ -154,12 +185,12 @@ const ProfilePage = () => {
           first_name: user?.firstName ?? "",
           last_name: user?.lastName ?? "",
           email: user?.email ?? "",
-          household_size: householdSize ? Number(householdSize) : null,
-          income: income ? Number(income) : null,
-          employment_status: employmentStatus || null,
-          housing_status: housingStatus || null,
-          disability_status: disabilityStatus || null,
-          veteran_status: veteranStatus || null,
+          household_size: form.householdSize ? Number(form.householdSize) : null,
+          income: form.income ? Number(form.income) : null,
+          employment_status: form.employmentStatus || null,
+          housing_status: form.housingStatus || null,
+          disability_status: form.disabilityStatus || null,
+          veteran_status: form.veteranStatus || null,
         }),
       });
 
@@ -168,7 +199,9 @@ const ProfilePage = () => {
         setSaveError(data?.error || "Failed to save. Please try again.");
         return;
       }
+      initialValues.current = { ...form };
       setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
     } catch {
       setSaveError("Network error. Is the backend running?");
     } finally {
@@ -219,8 +252,8 @@ const ProfilePage = () => {
                   type="number"
                   min={1}
                   max={20}
-                  value={householdSize}
-                  onChange={(e) => setHouseholdSize(e.target.value)}
+                  value={form.householdSize}
+                  onChange={(e) => setForm((f) => ({ ...f, householdSize: e.target.value }))}
                   placeholder="e.g. 3"
                   className={inputClass}
                 />
@@ -230,8 +263,8 @@ const ProfilePage = () => {
                 <input
                   type="number"
                   min={0}
-                  value={income}
-                  onChange={(e) => setIncome(e.target.value)}
+                  value={form.income}
+                  onChange={(e) => setForm((f) => ({ ...f, income: e.target.value }))}
                   placeholder="e.g. 35000"
                   className={inputClass}
                 />
@@ -239,16 +272,16 @@ const ProfilePage = () => {
             </div>
 
             {[
-              { label: "Employment Status", value: employmentStatus, setter: setEmploymentStatus, options: EMPLOYMENT_OPTIONS },
-              { label: "Housing Status", value: housingStatus, setter: setHousingStatus, options: HOUSING_OPTIONS },
-              { label: "Disability Status", value: disabilityStatus, setter: setDisabilityStatus, options: DISABILITY_OPTIONS },
-              { label: "Veteran Status", value: veteranStatus, setter: setVeteranStatus, options: VETERAN_OPTIONS },
-            ].map(({ label, value, setter, options }) => (
+              { label: "Employment Status", key: "employmentStatus" as const, options: EMPLOYMENT_OPTIONS },
+              { label: "Housing Status", key: "housingStatus" as const, options: HOUSING_OPTIONS },
+              { label: "Disability Status", key: "disabilityStatus" as const, options: DISABILITY_OPTIONS },
+              { label: "Veteran Status", key: "veteranStatus" as const, options: VETERAN_OPTIONS },
+            ].map(({ label, key, options }) => (
               <div key={label} className="space-y-1.5">
                 <label className="text-sm font-semibold text-foreground">{label}</label>
                 <select
-                  value={value}
-                  onChange={(e) => setter(e.target.value)}
+                  value={form[key]}
+                  onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
                   className={inputClass}
                 >
                   <option value="">Select...</option>
@@ -264,13 +297,15 @@ const ProfilePage = () => {
             )}
 
             <div className="flex items-center gap-3 pt-1">
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-6 py-2.5 rounded-full bg-primary text-[var(--on-primary)] font-headline font-bold text-sm hover:bg-primary-dim transition-all disabled:opacity-50"
-              >
-                {saving ? "Saving..." : "Save profile"}
-              </button>
+              {isDirty && (
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-6 py-2.5 rounded-full bg-primary text-[var(--on-primary)] font-headline font-bold text-sm hover:bg-primary-dim transition-all disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : "Save profile"}
+                </button>
+              )}
               {saved && (
                 <span className="text-sm text-green-600 font-medium">Saved!</span>
               )}
@@ -301,8 +336,12 @@ const ProfilePage = () => {
 
         {!appsLoading && !appsError && applications.length === 0 && (
           <Card>
-            <CardContent className="p-4 text-sm text-muted-foreground">
-              No applications yet.
+            <CardContent className="p-8 flex flex-col items-center text-center">
+              <span className="material-symbols-outlined text-4xl text-muted-foreground/40 mb-3">assignment</span>
+              <p className="font-medium text-foreground mb-1">No applications yet</p>
+              <p className="text-sm text-muted-foreground max-w-xs">
+                Once you apply to aid programs, your applications and their status will appear here.
+              </p>
             </CardContent>
           </Card>
         )}

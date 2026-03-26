@@ -7,12 +7,17 @@ import "./index.css";
 
 import PublicLayout from "@/components/layout/PublicLayout";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import SituationsPage from "./pages/SituationsPage";
 import ProfilePage from "./pages/ProfilePage";
 import ResultsPage from "./pages/ResultsPage";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/login.tsx";
+import PrivacyPage from "./pages/PrivacyPage";
+import TermsPage from "./pages/TermsPage";
+import AccessibilityPage from "./pages/AccessibilityPage";
+import ContactPage from "./pages/ContactPage";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -24,14 +29,24 @@ createRoot(document.getElementById("root")!).render(
             <Route index element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Login />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/accessibility" element={<AccessibilityPage />} />
+            <Route path="/contact" element={<ContactPage />} />
             <Route path="*" element={<NotFound />} />
           </Route>
 
-          {/* Dashboard pages: sidebar + header */}
+          {/* Dashboard pages: sidebar + header, accessible to all */}
           <Route element={<DashboardLayout />}>
             <Route path="/situations" element={<SituationsPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-<Route path="/results" element={<ResultsPage />} />
+            <Route path="/results" element={<ResultsPage />} />
+          </Route>
+
+          {/* Protected dashboard pages: auth check + sidebar + header */}
+          <Route element={<ProtectedRoute />}>
+            <Route element={<DashboardLayout />}>
+              <Route path="/profile" element={<ProfilePage />} />
+            </Route>
           </Route>
         </Routes>
       </BrowserRouter>

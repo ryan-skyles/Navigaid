@@ -5,8 +5,8 @@ import { getStoredUser } from "@/utils/auth";
 const navItems = [
   {
     to: "/results",
-    label: "History",
-    icon: "history",
+    label: "Chat",
+    icon: "chat_bubble",
     matchExact: true,
   },
   {

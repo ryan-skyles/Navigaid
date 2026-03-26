@@ -12,16 +12,16 @@ const Footer = ({ className = "" }: FooterProps) => {
           &copy; {new Date().getFullYear()} NavigAid. Empowering communities through accessible aid.
         </div>
         <div className="flex flex-wrap justify-center gap-6 md:gap-8">
-          <Link to="/" className="text-xs font-label text-slate-400 hover:text-blue-800 transition-colors">
+          <Link to="/privacy" className="text-xs font-label text-slate-400 hover:text-blue-800 transition-colors">
             Privacy Policy
           </Link>
-          <Link to="/" className="text-xs font-label text-slate-400 hover:text-blue-800 transition-colors">
+          <Link to="/terms" className="text-xs font-label text-slate-400 hover:text-blue-800 transition-colors">
             Terms of Service
           </Link>
-          <Link to="/" className="text-xs font-label text-slate-400 hover:text-blue-800 transition-colors">
+          <Link to="/accessibility" className="text-xs font-label text-slate-400 hover:text-blue-800 transition-colors">
             Accessibility
           </Link>
-          <Link to="/" className="text-xs font-label text-slate-400 hover:text-blue-800 transition-colors">
+          <Link to="/contact" className="text-xs font-label text-slate-400 hover:text-blue-800 transition-colors">
             Contact Support
           </Link>
         </div>

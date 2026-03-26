@@ -3,11 +3,18 @@ import { useNavigate } from "react-router-dom";
 
 const Index = () => {
   const [message, setMessage] = useState("");
+  const [searchError, setSearchError] = useState("");
   const navigate = useNavigate();
 
   const handleSubmit = () => {
-    if (!message.trim()) return;
-    navigate("/results", { state: { initialMessage: message.trim() } });
+    const trimmed = message.trim();
+    if (!trimmed) return;
+    if (trimmed.length < 3) {
+      setSearchError("Please enter at least 3 characters to search.");
+      return;
+    }
+    setSearchError("");
+    navigate("/results", { state: { initialMessage: trimmed } });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -46,7 +53,7 @@ const Index = () => {
               </div>
               <input
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={(e) => { setMessage(e.target.value); if (searchError) setSearchError(""); }}
                 onKeyDown={handleKeyDown}
                 className="w-full bg-transparent border-none focus:ring-0 px-6 py-4 text-on-surface placeholder:text-[var(--outline-variant)] font-body text-lg focus:outline-none"
                 placeholder="Describe the type of support you are looking for..."
@@ -60,6 +67,10 @@ const Index = () => {
                 Find Aid
               </button>
             </div>
+
+            {searchError && (
+              <p className="mt-3 text-sm text-error font-medium text-center">{searchError}</p>
+            )}
 
             {/* Suggested Tags */}
             <div className="mt-8 flex flex-wrap justify-center gap-3">
