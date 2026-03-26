@@ -6,32 +6,39 @@ This iteration introduces a backend service and persistent data layer, transform
 
 ## Working Features
 - **Site logo** — Custom logo displayed in the header (all pages) and as the hero image on the landing page
-- **Persistent chat history** — Messages sent on the Search Results page are saved to PostgreSQL and survive page refreshes
-- **Conversation management** — Create, star/unstar, and delete saved chat sessions from the results view
+- **Persistent chat history** — Messages sent on the Chat page are saved to PostgreSQL and survive page refreshes
+- **Conversation management** — Create, star/unstar, and delete saved chat sessions from the chat view
 - **LLM-powered responses** — User messages are answered by Google Gemini (2.5 Flash), with full conversation context passed for multi-turn dialogue
 - **Typewriter effect** — Assistant replies type out character-by-character for a polished chatbot feel
-- **Guided landing page** — Users describe their situation on the home page and are routed into a new chat session on the results page
+- **Guided landing page** — Users describe their situation on the home page and are routed into a new chat session
+- **User authentication** — Full login and signup flow with PBKDF2-SHA512 password hashing; protected routes redirect unauthenticated users to login
+- **Guest chat mode** — Users can chat with the AI without creating an account; conversations are stored locally in the browser and a banner prompts sign-up to save them
+- **Guest-to-account migration** — When a guest creates an account, all local conversations are automatically migrated to their new database account
+- **Eligibility profile** — Authenticated users can save household size, income, employment, housing, disability, and veteran status; the save button only appears when a field has changed
+- **Informational pages** — Fully themed Privacy Policy, Terms of Service, Accessibility statement, and Contact/FAQ pages accessible from the footer
 
 ## EARS Requirements
 **Complete**
-- The system shall securely store and protect all user-provided personal and housing information while limiting AI’s ability to access such information 
-- The system shall track users’ and processes’ data to better understand the users’ needs and situations.
+- The system shall securely store and protect all user-provided personal and housing information while limiting AI’s ability to access such information
+- The system shall track users’ and processes’ data to better understand the users’ needs and situations
 - While the user is logged in on the website, the views will be customized to them to make it feel more comfortable and personal
-- The system shall provide centralized access to government aid information.
+- The system shall provide centralized access to government aid information
+- The system shall allow users to access aid information without creating an account
+- The system shall securely authenticate users before granting access to personal data
 
 **Not Complete**
-- The system shall display clear, plain-language explanations of eligibility requirements.
-- When a user submits an application, the system shall update the application status.
-- When the user creates an account, the listings and information shall be tailored to the user’s location by default.
-- When an application is approved, the next steps will be linked.
-- While a user is on a waitlist/pending, the system shall show waitlist/pending status and any required user actions.
+- The system shall display clear, plain-language explanations of eligibility requirements
+- When a user submits an application, the system shall update the application status
+- When the user creates an account, the listings and information shall be tailored to the user’s location by default
+- When an application is approved, the next steps will be linked
+- While a user is on a waitlist/pending, the system shall show waitlist/pending status and any required user actions
 
 ## Tech Stack
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, React Router, React Query
 - **Backend:** Node.js, Express, CORS, dotenv
 - **Database:** PostgreSQL (`pg` driver)
 - **LLM:** Google Gemini 2.5 Flash (`@google/generative-ai`)
-- **Authentication:** Not implemented yet (planned future work)
+- **Authentication:** Custom PBKDF2-SHA512 password hashing; localStorage session with server-side validation
 
 ## Architecture Diagram
 ```mermaid
