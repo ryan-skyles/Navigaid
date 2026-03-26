@@ -60,6 +60,88 @@ function verifyPassword(password, storedHash) {
   return crypto.timingSafeEqual(expectedBuffer, actualBuffer);
 }
 
+function parseApplicationSteps(text) {
+  const s = String(text ?? "").trim();
+  if (!s) {
+    return [];
+  }
+  const chunks = s
+    .split(/\s*(?=\d+\.\s)/)
+    .map((p) => p.replace(/^\d+\.\s*/, "").trim())
+    .filter(Boolean);
+  if (chunks.length === 0) {
+    return [s];
+  }
+  return chunks;
+}
+
+function normalizeStepsCompleted(raw, stepCount) {
+  const n = Math.max(Number(stepCount) || 0, 1);
+  let arr = [];
+  if (Array.isArray(raw)) {
+    arr = raw.map((v) => Boolean(v));
+  }
+  if (arr.length < n) {
+    arr = [...arr, ...Array(n - arr.length).fill(false)];
+  } else if (arr.length > n) {
+    arr = arr.slice(0, n);
+  }
+  return arr;
+}
+
+function effectiveStepsFromDbStepsText(applicationStepsRaw) {
+  const steps = parseApplicationSteps(applicationStepsRaw);
+  if (steps.length > 0) {
+    return steps;
+  }
+  return ["Follow the official application process."];
+}
+
+function mapUserApplicationRow(r) {
+  const steps = effectiveStepsFromDbStepsText(r.applicationStepsRaw);
+  const stepsCompleted = normalizeStepsCompleted(r.stepsCompletedRaw, steps.length);
+  return {
+    userApplicationId: r.userApplicationId,
+    status: r.status,
+    dateStarted: r.dateStarted,
+    lastUpdated: r.lastUpdated,
+    applicationId: r.applicationId,
+    applicationName: r.applicationName,
+    category: r.category,
+    description: r.description,
+    qualificationSummary: r.qualificationSummary,
+    officialUrl: r.officialUrl,
+    steps,
+    stepsCompleted,
+  };
+}
+
+async function selectUserApplicationDetail(clientId, userApplicationId) {
+  const { rows } = await pool.query(
+    `SELECT
+      ua.user_application_id AS "userApplicationId",
+      ua.status,
+      ua.date_started AS "dateStarted",
+      ua.last_updated AS "lastUpdated",
+      a.application_id AS "applicationId",
+      a.application_name AS "applicationName",
+      a.category,
+      a.description,
+      a.qualification_summary AS "qualificationSummary",
+      a.official_url AS "officialUrl",
+      a.application_steps AS "applicationStepsRaw",
+      ua.steps_completed AS "stepsCompletedRaw"
+    FROM user_applications ua
+    INNER JOIN applications a ON a.application_id = ua.application_id
+    WHERE ua.user_application_id = $1 AND ua.user_id = $2`,
+    [userApplicationId, clientId]
+  );
+  if (rows.length === 0) {
+    return null;
+  }
+  return mapUserApplicationRow(rows[0]);
+}
+
 app.get("/", (req, res) => {
   res.json({ message: "Gov Aid Assistance API", status: "ok" });
 });
@@ -639,6 +721,255 @@ app.post("/api/profile", async (req, res) => {
     return res.status(201).json({ ok: true, user: rows[0] });
   } catch (err) {
     return res.status(500).json({ error: "Failed to save profile.", details: err.message });
+  }
+});
+
+app.get("/api/applications", async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT
+        application_id,
+        application_name,
+        category,
+        description,
+        qualification_summary,
+        official_url,
+        application_steps
+      FROM applications
+      ORDER BY application_name ASC`
+    );
+    const body = rows.map((r) => ({
+      applicationId: r.application_id,
+      applicationName: r.application_name,
+      category: r.category,
+      description: r.description,
+      qualificationSummary: r.qualification_summary,
+      officialUrl: r.official_url,
+      steps: effectiveStepsFromDbStepsText(r.application_steps),
+    }));
+    return res.json(body);
+  } catch (err) {
+    return res.status(500).json({
+      error: "Failed to list applications.",
+      details: err.message,
+    });
+  }
+});
+
+app.get("/api/clients/:clientId/user-applications", async (req, res) => {
+  const clientId = Number.parseInt(req.params.clientId, 10);
+  if (Number.isNaN(clientId)) {
+    return res.status(400).json({ error: "Invalid client ID." });
+  }
+
+  try {
+    const userCheck = await pool.query("SELECT user_id FROM users WHERE user_id = $1", [clientId]);
+    if (userCheck.rowCount === 0) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT
+        ua.user_application_id AS "userApplicationId",
+        ua.status,
+        ua.date_started AS "dateStarted",
+        ua.last_updated AS "lastUpdated",
+        a.application_id AS "applicationId",
+        a.application_name AS "applicationName",
+        a.category,
+        a.description,
+        a.qualification_summary AS "qualificationSummary",
+        a.official_url AS "officialUrl",
+        a.application_steps AS "applicationStepsRaw",
+        ua.steps_completed AS "stepsCompletedRaw"
+      FROM user_applications ua
+      INNER JOIN applications a ON a.application_id = ua.application_id
+      WHERE ua.user_id = $1 AND ua.status <> 'terminated'
+      ORDER BY ua.last_updated DESC NULLS LAST, ua.user_application_id DESC`,
+      [clientId]
+    );
+
+    return res.json(rows.map((r) => mapUserApplicationRow(r)));
+  } catch (err) {
+    return res.status(500).json({
+      error: "Failed to fetch user applications.",
+      details: err.message,
+    });
+  }
+});
+
+app.post("/api/clients/:clientId/user-applications", async (req, res) => {
+  const clientId = Number.parseInt(req.params.clientId, 10);
+  const applicationId = Number.parseInt(req.body?.applicationId ?? req.body?.application_id, 10);
+
+  if (Number.isNaN(clientId)) {
+    return res.status(400).json({ error: "Invalid client ID." });
+  }
+  if (Number.isNaN(applicationId)) {
+    return res.status(400).json({ error: "applicationId is required." });
+  }
+
+  try {
+    const userCheck = await pool.query("SELECT user_id FROM users WHERE user_id = $1", [clientId]);
+    if (userCheck.rowCount === 0) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    const appRow = await pool.query(
+      "SELECT application_id, application_steps FROM applications WHERE application_id = $1",
+      [applicationId]
+    );
+    if (appRow.rowCount === 0) {
+      return res.status(404).json({ error: "Application type not found." });
+    }
+
+    const stepList = effectiveStepsFromDbStepsText(appRow.rows[0].application_steps);
+    const falses = stepList.map(() => false);
+    const stepsJson = JSON.stringify(falses);
+
+    const existing = await pool.query(
+      `SELECT user_application_id, status FROM user_applications
+       WHERE user_id = $1 AND application_id = $2`,
+      [clientId, applicationId]
+    );
+
+    let userApplicationId;
+    if (existing.rowCount > 0) {
+      if (existing.rows[0].status !== "terminated") {
+        return res.status(409).json({ error: "This application is already on your list." });
+      }
+      await pool.query(
+        `UPDATE user_applications
+         SET status = 'active', steps_completed = $1::jsonb, last_updated = CURRENT_TIMESTAMP
+         WHERE user_application_id = $2`,
+        [stepsJson, existing.rows[0].user_application_id]
+      );
+      userApplicationId = existing.rows[0].user_application_id;
+    } else {
+      const ins = await pool.query(
+        `INSERT INTO user_applications (user_id, application_id, status, steps_completed)
+         VALUES ($1, $2, 'active', $3::jsonb)
+         RETURNING user_application_id`,
+        [clientId, applicationId, stepsJson]
+      );
+      userApplicationId = ins.rows[0].user_application_id;
+    }
+
+    const detail = await selectUserApplicationDetail(clientId, userApplicationId);
+    return res.status(201).json(detail);
+  } catch (err) {
+    return res.status(500).json({
+      error: "Failed to add application.",
+      details: err.message,
+    });
+  }
+});
+
+app.patch("/api/clients/:clientId/user-applications/:userApplicationId", async (req, res) => {
+  const clientId = Number.parseInt(req.params.clientId, 10);
+  const userApplicationId = Number.parseInt(req.params.userApplicationId, 10);
+  const { stepsCompleted, status: requestedStatus } = req.body ?? {};
+
+  if (Number.isNaN(clientId)) {
+    return res.status(400).json({ error: "Invalid client ID." });
+  }
+  if (Number.isNaN(userApplicationId)) {
+    return res.status(400).json({ error: "Invalid user application ID." });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT ua.status, ua.steps_completed, a.application_steps
+       FROM user_applications ua
+       INNER JOIN applications a ON a.application_id = ua.application_id
+       WHERE ua.user_application_id = $1 AND ua.user_id = $2`,
+      [userApplicationId, clientId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "User application not found." });
+    }
+
+    const row = rows[0];
+    const steps = effectiveStepsFromDbStepsText(row.application_steps);
+    const stepCount = steps.length;
+
+    if (row.status === "terminated") {
+      return res.status(400).json({ error: "This application was removed." });
+    }
+
+    let nextSteps = normalizeStepsCompleted(row.steps_completed, stepCount);
+    const wantsComplete = requestedStatus === "completed";
+
+    if (Array.isArray(stepsCompleted)) {
+      if (row.status === "completed") {
+        return res.status(400).json({ error: "Application is already completed." });
+      }
+      if (stepsCompleted.length !== stepCount) {
+        return res.status(400).json({ error: "stepsCompleted length does not match steps." });
+      }
+      nextSteps = stepsCompleted.map(Boolean);
+    } else if (wantsComplete && row.status === "completed") {
+      const detail = await selectUserApplicationDetail(clientId, userApplicationId);
+      return res.json(detail);
+    }
+
+    let nextStatus = row.status;
+    if (wantsComplete) {
+      if (!nextSteps.every(Boolean)) {
+        return res.status(400).json({ error: "Complete all steps before marking complete." });
+      }
+      nextStatus = "completed";
+    }
+
+    await pool.query(
+      `UPDATE user_applications
+       SET steps_completed = $1::jsonb,
+           status = $2,
+           last_updated = CURRENT_TIMESTAMP
+       WHERE user_application_id = $3 AND user_id = $4`,
+      [JSON.stringify(nextSteps), nextStatus, userApplicationId, clientId]
+    );
+
+    const detail = await selectUserApplicationDetail(clientId, userApplicationId);
+    return res.json(detail);
+  } catch (err) {
+    return res.status(500).json({
+      error: "Failed to update application.",
+      details: err.message,
+    });
+  }
+});
+
+app.delete("/api/clients/:clientId/user-applications/:userApplicationId", async (req, res) => {
+  const clientId = Number.parseInt(req.params.clientId, 10);
+  const userApplicationId = Number.parseInt(req.params.userApplicationId, 10);
+
+  if (Number.isNaN(clientId)) {
+    return res.status(400).json({ error: "Invalid client ID." });
+  }
+  if (Number.isNaN(userApplicationId)) {
+    return res.status(400).json({ error: "Invalid user application ID." });
+  }
+
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE user_applications
+       SET status = 'terminated', last_updated = CURRENT_TIMESTAMP
+       WHERE user_application_id = $1 AND user_id = $2`,
+      [userApplicationId, clientId]
+    );
+
+    if (rowCount === 0) {
+      return res.status(404).json({ error: "User application not found." });
+    }
+
+    return res.status(204).send();
+  } catch (err) {
+    return res.status(500).json({
+      error: "Failed to remove application.",
+      details: err.message,
+    });
   }
 });
 

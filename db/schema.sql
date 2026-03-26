@@ -67,6 +67,7 @@ CREATE TABLE user_applications (
     date_started          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_updated          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     notes                 TEXT,
+    steps_completed       JSONB NOT NULL DEFAULT '[]',
     CONSTRAINT fk_user_applications_user
         FOREIGN KEY (user_id)
         REFERENCES users(user_id)
@@ -88,7 +89,10 @@ CREATE TABLE user_applications (
                 'follow_up_requested',
                 'approved',
                 'denied',
-                'closed'
+                'closed',
+                'active',
+                'terminated',
+                'completed'
             )
         )
 );
