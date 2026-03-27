@@ -14,6 +14,12 @@ const navItems = [
     label: "Programs",
     icon: "grid_view",
   },
+  {
+    to: "/applications",
+    label: "Applications",
+    icon: "assignment",
+    matchExact: true,
+  },
 ] as const;
 
 interface SidebarProps {

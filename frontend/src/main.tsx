@@ -11,6 +11,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import SituationsPage from "./pages/SituationsPage";
 import ProfilePage from "./pages/ProfilePage";
+import ApplicationsPage from "./pages/ApplicationsPage";
 import ResultsPage from "./pages/ResultsPage";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/login.tsx";
@@ -40,6 +41,8 @@ createRoot(document.getElementById("root")!).render(
           <Route element={<DashboardLayout />}>
             <Route path="/situations" element={<SituationsPage />} />
             <Route path="/results" element={<ResultsPage />} />
+            {/* Temporarily public: browse Applications without signing in (saving still requires login). */}
+            <Route path="/applications" element={<ApplicationsPage />} />
           </Route>
 
           {/* Protected dashboard pages: auth check + sidebar + header */}
