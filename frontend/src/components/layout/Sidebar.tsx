@@ -1,5 +1,4 @@
 import { Link, useLocation } from "react-router-dom";
-import logo from "@/assets/Logo.png";
 import { getStoredUser } from "@/utils/auth";
 
 const navItems = [
@@ -43,21 +42,15 @@ const Sidebar = ({ open, onClose }: SidebarProps) => {
 
       {/* Sidebar */}
       <aside
-        className={`h-screen w-64 fixed left-0 top-0 border-r border-slate-200/20 bg-slate-50 flex flex-col py-6 gap-4 z-50 font-body antialiased transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        className={`h-[calc(100vh-5rem)] w-64 fixed left-0 top-20 border-r border-slate-200/20 bg-slate-50 flex flex-col py-6 gap-4 z-40 font-body antialiased transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="px-6 mb-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3" onClick={onClose}>
-            <img src={logo} alt="NavigAid" className="w-8 h-8 rounded-lg object-contain" />
-            <div>
-              <h1 className="text-lg font-bold text-slate-800 font-headline">Navig<span className="text-primary">Aid</span></h1>
-              <p className="text-xs text-slate-500">Aid Portal</p>
-            </div>
-          </Link>
+        <div className="px-6 mb-2 flex items-center justify-between lg:hidden">
+          <span className="text-sm font-semibold text-slate-400 font-headline tracking-wide uppercase">Menu</span>
           <button
             onClick={onClose}
-            className="lg:hidden w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-colors"
           >
             <span className="material-symbols-outlined text-xl">close</span>
           </button>

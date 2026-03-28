@@ -10,9 +10,21 @@ const navLinks = [
   { to: "/profile", label: "Profile" },
 ] as const;
 
-const TopNavBar = () => {
+interface TopNavBarProps {
+  onMenuToggle?: () => void;
+}
+
+const TopNavBar = ({ onMenuToggle }: TopNavBarProps) => {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleHamburger = () => {
+    if (onMenuToggle) {
+      onMenuToggle();
+    } else {
+      setMobileOpen(!mobileOpen);
+    }
+  };
 
   return (
     <nav className="fixed top-0 w-full z-50 flex justify-between items-center px-6 md:px-12 h-20 bg-white/80 backdrop-blur-xl shadow-editorial">
@@ -53,14 +65,14 @@ const TopNavBar = () => {
 
         <button
           className="md:hidden p-2 text-slate-500 hover:text-blue-600 transition-colors"
-          onClick={() => setMobileOpen(!mobileOpen)}
+          onClick={handleHamburger}
           aria-label="Toggle menu"
         >
           <Menu className="w-6 h-6" />
         </button>
       </div>
 
-      {mobileOpen && (
+      {mobileOpen && !onMenuToggle && (
         <div className="absolute top-20 left-0 right-0 bg-white border-b border-slate-200 shadow-lg md:hidden z-50">
           <div className="flex flex-col p-4 space-y-1">
             {navLinks.map((link) => (
